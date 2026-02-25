@@ -1,0 +1,14 @@
+{
+    "glsl-canvas.refreshOnSave": true,
+    "glsl-canvas.refreshOnChange": false,
+    "webgl-glsl-editor.format.placeSpaceAfterKeywords": true,
+    "[glsl]": {
+        "editor.defaultFormatter": "raczzalan.webgl-glsl-editor"
+    },
+    "[frag]": {
+        "editor.defaultFormatter": "raczzalan.webgl-glsl-editor"
+    },
+    "[vert]": {
+        "editor.defaultFormatter": "raczzalan.webgl-glsl-editor"
+    }
+}
