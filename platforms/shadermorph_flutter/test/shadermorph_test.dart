@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:cinematic_transitions/cinematic_transitions.dart';
+import 'package:shadermorph_flutter/shadermorph_flutter.dart';
 
 void main() {
   test('adds one to input values', () {
