@@ -1,5 +1,5 @@
-name: cinematic_transitions
-description: "Cinematic Transitions."
+name: ShaderMorph
+description: "ShaderMorph is a cross-platform GPU transition engine."
 version: 0.0.1
 homepage:
 

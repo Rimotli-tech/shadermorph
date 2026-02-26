@@ -1,5 +1,5 @@
 name: example
-description: "Cinematic Transitions Examples."
+description: "ShaderMorph Examples."
 
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
@@ -13,7 +13,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  cinematic_transitions:
+  ShaderMorph:
     path: ../
 
   cupertino_icons: ^1.0.8
