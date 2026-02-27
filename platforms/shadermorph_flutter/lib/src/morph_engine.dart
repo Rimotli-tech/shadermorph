@@ -20,6 +20,7 @@ class MorphEngine {
     required ui.Size resolutionPx,
     required double progress,
     required int morphStyle,
+    required double debugMode,
     required MorphMetadata metadata,
     required ui.Image texFrom,
     required ui.Image texTo,
@@ -35,6 +36,7 @@ class MorphEngine {
       targetRects: metadata.targetRects,
       texFrom: texFrom,
       texTo: texTo,
+      debugMode: debugMode,
     );
     return shader;
   }

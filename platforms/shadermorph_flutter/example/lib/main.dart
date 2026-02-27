@@ -41,6 +41,7 @@ class _ShaderMorphV2DemoPageState extends State<ShaderMorphV2DemoPage>
   bool _showScreenB = false;
   bool _isMorphActive = false;
   int _morphStyle = 0;
+  int _debugMode = 0;
 
   @override
   void initState() {
@@ -65,28 +66,25 @@ class _ShaderMorphV2DemoPageState extends State<ShaderMorphV2DemoPage>
       return;
     }
 
-    final resolutionPx = GeometryTracker.logicalToPhysicalSize(
-      context,
-      logicalSize,
-    );
+    final viewportSize = ui.Size(logicalSize.width, logicalSize.height);
     final sourceId = toScreenB ? _screenAId : _screenBId;
     final targetId = toScreenB ? _screenBId : _screenAId;
 
     final metadata = _metadataCoordinator.build(
       sourceScreenId: sourceId,
       targetScreenId: targetId,
-      resolutionPx: resolutionPx,
+      viewportSize: viewportSize,
     );
 
     final fromTexture = await _drawScreenTexture(
-      resolutionPx: resolutionPx,
+      viewportSize: viewportSize,
       pairCount: metadata.pairCount,
       rects: metadata.sourceRects,
       boxColor: Colors.blue,
       background: const Color(0xFFF1F5F9),
     );
     final toTexture = await _drawScreenTexture(
-      resolutionPx: resolutionPx,
+      viewportSize: viewportSize,
       pairCount: metadata.pairCount,
       rects: metadata.targetRects,
       boxColor: Colors.orange,
@@ -115,7 +113,7 @@ class _ShaderMorphV2DemoPageState extends State<ShaderMorphV2DemoPage>
   }
 
   Future<ui.Image> _drawScreenTexture({
-    required ui.Size resolutionPx,
+    required ui.Size viewportSize,
     required int pairCount,
     required List<MorphRect> rects,
     required Color boxColor,
@@ -125,17 +123,17 @@ class _ShaderMorphV2DemoPageState extends State<ShaderMorphV2DemoPage>
     final canvas = Canvas(recorder);
 
     canvas.drawRect(
-      Rect.fromLTWH(0, 0, resolutionPx.width, resolutionPx.height),
+      Rect.fromLTWH(0, 0, viewportSize.width, viewportSize.height),
       Paint()..color = background,
     );
 
     for (int i = 0; i < pairCount && i < rects.length; i++) {
       final rect = rects[i];
       final physicalRect = Rect.fromLTWH(
-        rect.x * resolutionPx.width,
-        rect.y * resolutionPx.height,
-        rect.width * resolutionPx.width,
-        rect.height * resolutionPx.height,
+        rect.x * viewportSize.width,
+        rect.y * viewportSize.height,
+        rect.width * viewportSize.width,
+        rect.height * viewportSize.height,
       );
       canvas.drawRRect(
         RRect.fromRectAndRadius(physicalRect, const Radius.circular(16)),
@@ -145,9 +143,60 @@ class _ShaderMorphV2DemoPageState extends State<ShaderMorphV2DemoPage>
 
     final picture = recorder.endRecording();
     return picture.toImage(
-      resolutionPx.width.ceil(),
-      resolutionPx.height.ceil(),
+      viewportSize.width.ceil(),
+      viewportSize.height.ceil(),
     );
+  }
+
+  Future<void> _ensureTextures(Size logicalSize) async {
+    if (_fromTexture != null && _toTexture != null) {
+      return;
+    }
+
+    final viewportSize = ui.Size(logicalSize.width, logicalSize.height);
+    final sourceId = _showScreenB ? _screenBId : _screenAId;
+    final targetId = _showScreenB ? _screenAId : _screenBId;
+    final sourceBoxColor = _showScreenB ? Colors.orange : Colors.blue;
+    final targetBoxColor = _showScreenB ? Colors.blue : Colors.orange;
+    final sourceBackground =
+        _showScreenB ? const Color(0xFFFFF7ED) : const Color(0xFFF1F5F9);
+    final targetBackground =
+        _showScreenB ? const Color(0xFFF1F5F9) : const Color(0xFFFFF7ED);
+
+    final metadata = _metadataCoordinator.build(
+      sourceScreenId: sourceId,
+      targetScreenId: targetId,
+      viewportSize: viewportSize,
+    );
+
+    final fromTexture = await _drawScreenTexture(
+      viewportSize: viewportSize,
+      pairCount: metadata.pairCount,
+      rects: metadata.sourceRects,
+      boxColor: sourceBoxColor,
+      background: sourceBackground,
+    );
+    final toTexture = await _drawScreenTexture(
+      viewportSize: viewportSize,
+      pairCount: metadata.pairCount,
+      rects: metadata.targetRects,
+      boxColor: targetBoxColor,
+      background: targetBackground,
+    );
+
+    if (!mounted) {
+      fromTexture.dispose();
+      toTexture.dispose();
+      return;
+    }
+
+    _fromTexture?.dispose();
+    _toTexture?.dispose();
+    setState(() {
+      _metadata = metadata;
+      _fromTexture = fromTexture;
+      _toTexture = toTexture;
+    });
   }
 
   @override
@@ -155,10 +204,6 @@ class _ShaderMorphV2DemoPageState extends State<ShaderMorphV2DemoPage>
     return LayoutBuilder(
       builder: (context, constraints) {
         final logicalSize = Size(constraints.maxWidth, constraints.maxHeight);
-        final resolutionPx = GeometryTracker.logicalToPhysicalSize(
-          context,
-          logicalSize,
-        );
 
         return Scaffold(
           appBar: AppBar(
@@ -179,6 +224,29 @@ class _ShaderMorphV2DemoPageState extends State<ShaderMorphV2DemoPage>
                   },
                 ),
               ),
+              PopupMenuButton<int>(
+                initialValue: _debugMode,
+                onSelected: (value) async {
+                  setState(() {
+                    _debugMode = value;
+                  });
+                  if (value != 0 &&
+                      (_fromTexture == null || _toTexture == null)) {
+                    await _ensureTextures(logicalSize);
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem<int>(value: 0, child: Text('Normal')),
+                  PopupMenuItem<int>(value: 1, child: Text('UV')),
+                  PopupMenuItem<int>(value: 2, child: Text('RectMask')),
+                  PopupMenuItem<int>(value: 3, child: Text('Overlay')),
+                  PopupMenuItem<int>(
+                    value: 9,
+                    child: Text('ForceGradient'),
+                  ),
+                ],
+                icon: const Icon(Icons.bug_report_outlined),
+              ),
             ],
           ),
           body: Stack(
@@ -186,13 +254,21 @@ class _ShaderMorphV2DemoPageState extends State<ShaderMorphV2DemoPage>
             children: [
               ShaderMorphScope(
                 screenId: _screenAId,
-                child: Offstage(offstage: _showScreenB, child: _ScreenA()),
+                child: Offstage(
+                  offstage: _showScreenB,
+                  child: const _ScreenA(),
+                ),
               ),
               ShaderMorphScope(
                 screenId: _screenBId,
-                child: Offstage(offstage: !_showScreenB, child: _ScreenB()),
+                child: Offstage(
+                  offstage: !_showScreenB,
+                  child: const _ScreenB(),
+                ),
               ),
-              if (_isMorphActive && _fromTexture != null && _toTexture != null)
+              if ((_isMorphActive || _debugMode != 0) &&
+                  _fromTexture != null &&
+                  _toTexture != null)
                 Positioned.fill(
                   child: IgnorePointer(
                     child: FutureBuilder<MorphEngine>(
@@ -201,17 +277,16 @@ class _ShaderMorphV2DemoPageState extends State<ShaderMorphV2DemoPage>
                         if (!snapshot.hasData) {
                           return const SizedBox.shrink();
                         }
-                        final engine = snapshot.data!;
                         return AnimatedBuilder(
                           animation: _controller,
                           builder: (context, _) {
                             return CustomPaint(
                               painter: _MorphPainter(
-                                engine: engine,
+                                engine: snapshot.data!,
                                 metadata: _metadata,
-                                resolutionPx: resolutionPx,
                                 progress: _controller.progress,
                                 morphStyle: _morphStyle,
+                                debugMode: _debugMode,
                                 fromTexture: _fromTexture!,
                                 toTexture: _toTexture!,
                               ),
@@ -316,27 +391,28 @@ class _MorphPainter extends CustomPainter {
   _MorphPainter({
     required this.engine,
     required this.metadata,
-    required this.resolutionPx,
     required this.progress,
     required this.morphStyle,
+    required this.debugMode,
     required this.fromTexture,
     required this.toTexture,
   });
 
   final MorphEngine engine;
   final MorphMetadata metadata;
-  final ui.Size resolutionPx;
   final double progress;
   final int morphStyle;
+  final int debugMode;
   final ui.Image fromTexture;
   final ui.Image toTexture;
 
   @override
   void paint(Canvas canvas, Size size) {
     final shader = engine.createShader(
-      resolutionPx: resolutionPx,
+      resolutionPx: ui.Size(size.width, size.height),
       progress: progress,
       morphStyle: morphStyle,
+      debugMode: debugMode.toDouble(),
       metadata: metadata,
       texFrom: fromTexture,
       texTo: toTexture,
@@ -349,6 +425,7 @@ class _MorphPainter extends CustomPainter {
   bool shouldRepaint(covariant _MorphPainter oldDelegate) {
     return oldDelegate.progress != progress ||
         oldDelegate.morphStyle != morphStyle ||
+        oldDelegate.debugMode != debugMode ||
         oldDelegate.fromTexture != fromTexture ||
         oldDelegate.toTexture != toTexture ||
         oldDelegate.metadata.signature != metadata.signature;

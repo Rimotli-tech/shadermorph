@@ -74,12 +74,12 @@ class MetadataCoordinator {
   MorphMetadata? buildIfChanged({
     required String sourceScreenId,
     required String targetScreenId,
-    required ui.Size resolutionPx,
+    required ui.Size viewportSize,
   }) {
     final metadata = build(
       sourceScreenId: sourceScreenId,
       targetScreenId: targetScreenId,
-      resolutionPx: resolutionPx,
+      viewportSize: viewportSize,
     );
     if (_lastSignature == metadata.signature) {
       return null;
@@ -91,14 +91,14 @@ class MetadataCoordinator {
   MorphMetadata build({
     required String sourceScreenId,
     required String targetScreenId,
-    required ui.Size resolutionPx,
+    required ui.Size viewportSize,
   }) {
     final sourceTags = _registry.getTagsForScreen(sourceScreenId);
     final targetTags = _registry.getTagsForScreen(targetScreenId);
     final ids = sourceTags.keys.where(targetTags.containsKey).toList()..sort();
 
-    final safeWidth = resolutionPx.width <= 0 ? 1.0 : resolutionPx.width;
-    final safeHeight = resolutionPx.height <= 0 ? 1.0 : resolutionPx.height;
+    final safeWidth = viewportSize.width <= 0 ? 1.0 : viewportSize.width;
+    final safeHeight = viewportSize.height <= 0 ? 1.0 : viewportSize.height;
 
     final sourceRects = <MorphRect>[];
     final targetRects = <MorphRect>[];
@@ -107,8 +107,8 @@ class MetadataCoordinator {
       if (sourceRects.length >= maxPairs) {
         break;
       }
-      final src = sourceTags[id]?.physicalRect;
-      final dst = targetTags[id]?.physicalRect;
+      final src = sourceTags[id]?.logicalRect;
+      final dst = targetTags[id]?.logicalRect;
       if (src == null || dst == null) {
         continue;
       }

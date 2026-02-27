@@ -1,5 +1,3 @@
-import 'dart:ui' as ui;
-
 import 'package:flutter/widgets.dart';
 
 class GeometryTracker {
@@ -16,22 +14,4 @@ class GeometryTracker {
     return topLeft & renderObject.size;
   }
 
-  static Rect? extractPhysicalRect(BuildContext context) {
-    final logical = extractLogicalRect(context);
-    if (logical == null) {
-      return null;
-    }
-    final dpr = View.of(context).devicePixelRatio;
-    return Rect.fromLTWH(
-      logical.left * dpr,
-      logical.top * dpr,
-      logical.width * dpr,
-      logical.height * dpr,
-    );
-  }
-
-  static ui.Size logicalToPhysicalSize(BuildContext context, Size logicalSize) {
-    final dpr = View.of(context).devicePixelRatio;
-    return ui.Size(logicalSize.width * dpr, logicalSize.height * dpr);
-  }
 }

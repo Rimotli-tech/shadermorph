@@ -45,12 +45,12 @@ class ShaderMorphTagState extends State<ShaderMorphTag> {
     return null;
   }
 
-  Rect? get physicalRect {
+  Rect? get logicalRect {
     final context = _renderKey.currentContext;
     if (context == null) {
       return null;
     }
-    return GeometryTracker.extractPhysicalRect(context);
+    return GeometryTracker.extractLogicalRect(context);
   }
 
   @override
