@@ -1,5 +1,5 @@
-/// A Calculator.
-class Calculator {
-  /// Returns [value] plus 1.
-  int addOne(int value) => value + 1;
-}
+library shadermorph_flutter;
+
+export 'morph_frosted_glass_transition.dart';
+export 'morph_paper_rip_transition.dart';
+export 'shader_transition.dart';
