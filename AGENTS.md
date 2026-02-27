@@ -1,145 +1,33 @@
-# AGENTS.md
-ShaderMorph – Automation Guardrails
+# AGENTS.md — Protocol Guardrails
 
-This file defines structural and behavioral rules for automated agents
-(Codex, code generators, refactoring tools, etc.).
+## 1. DETERMINISM RULE
+Shaders must be "Dumb." They are prohibited from calculating UI state. 
+All position, scale, and rotation data MUST come from the `u_sourceRects` and `u_targetRects` uniforms.
 
-These rules must not be violated.
+## 2. GEOMETRY ABSTRACTION
+No shader code should reference hardcoded pixel values. 
+Coordinate math must be performed using the remapping logic: 
+SourceRect -> TargetRect interpolation based on u_progress.
 
-------------------------------------------------------------
-CORE ARCHITECTURE RULES
-------------------------------------------------------------
+## 3. PLATFORM RESPONSIBILITY
+The Platform layer is responsible for:
+- Identifying "Tagged" elements.
+- Capturing 'Before' and 'After' geometry.
+- Normalizing coordinates relative to the screen resolution.
+- Managing the lifecycle of the MorphStyle selection.
 
-1. core_shaders is the single source of truth.
+## 4. MODULARITY
+New visual effects should be implemented as "Styles" within the modular GLSL engine, not as standalone transition files. 
+Each Style must support N-number of morphing pairs.
 
-2. No platform-specific logic is allowed inside /core_shaders.
+## 5. PERFORMANCE
+The Framework must minimize the number of uniforms passed per frame. 
+If no geometry changes, the Framework must not trigger a metadata re-sync.
 
-3. Platforms depend on core.
-   Core must never depend on platforms.
+## 6. COORDINATE SPACE + DPR RULE (V2)
+All metadata MUST be extracted in logical pixels then converted to physical pixels using
+devicePixelRatio before normalization against u_resolution.
 
-4. Platform folders must never depend on each other.
-
-5. Adding a new platform must not require modifying:
-   - Existing platforms
-   - core_shaders structure
-
-If structural modification is required, the architecture is incorrect.
-
-------------------------------------------------------------
-CORE SHADER RULES
-------------------------------------------------------------
-
-1. All shader files must compile in isolation in a raw GLSL sandbox.
-
-2. Shared logic must live inside:
-   /core_shaders/includes
-
-3. Transitions must live inside:
-   /core_shaders/transitions
-
-4. Effects must live inside:
-   /core_shaders/effects
-
-5. Do not introduce framework-specific uniforms.
-
-6. All shaders must follow the uniform contract (v1).
-
-------------------------------------------------------------
-UNIFORM CONTRACT (V1)
-------------------------------------------------------------
-
-Required uniforms:
-
-uniform float u_progress;
-uniform vec2  u_resolution;
-
-Optional standardized uniforms:
-
-uniform float u_time;
-uniform sampler2D u_texture0;
-uniform sampler2D u_texture1;
-
-Rules:
-
-- Do not introduce new uniform names without updating docs/uniform_contract.md.
-- Do not rename existing uniforms casually.
-- Uniform naming must remain consistent across all platforms.
-
-------------------------------------------------------------
-PLATFORM RULES
-------------------------------------------------------------
-
-1. Platform folders may:
-   - Import or copy shaders from core_shaders
-   - Map standardized uniforms
-   - Provide framework-native APIs
-
-2. Platform folders may NOT:
-   - Define shader logic internally
-   - Modify core shader files
-   - Introduce alternate uniform naming
-
-3. Platform shader assets must be treated as generated or synced content.
-   They are not the source of truth.
-
-------------------------------------------------------------
-FILE NAMING RULES
-------------------------------------------------------------
-
-Shader files:
-
-morph_<descriptor>.frag
-effect_<descriptor>.frag
-
-Examples:
-
-morph_basic.frag
-morph_wave.frag
-effect_noise.frag
-
-Platform wrapper classes:
-
-MorphBasicTransition
-MorphWaveTransition
-
-Consistency is mandatory.
-
-------------------------------------------------------------
-DEVELOPMENT WORKFLOW RULES
-------------------------------------------------------------
-
-Correct order:
-
-1. Create or modify shader in /core_shaders
-2. Validate in GLSL sandbox
-3. Lock uniform API
-4. Sync or copy into platform
-5. Integrate via platform adapter
-
-Never develop shader logic directly inside platform folders.
-
-------------------------------------------------------------
-AUTOMATION RULES
-------------------------------------------------------------
-
-If introducing tooling:
-
-- Tooling must not blur dependency direction.
-- Generated files must never become the source of truth.
-- Automation must be optional and reversible.
-
-------------------------------------------------------------
-SCALABILITY RULE
-------------------------------------------------------------
-
-The repository must support:
-
-- Adding new platforms without restructuring.
-- Publishing platforms independently in the future.
-- Extracting core_shaders into its own repository if required.
-
-If a change breaks these assumptions, it must be rejected.
-
-------------------------------------------------------------
-END OF AGENTS RULES
-------------------------------------------------------------
+## 7. UNIFORM PACKING RULE (V2)
+The Flutter adapter MUST pack floats in the exact order specified by docs/metadata_protocol_v2.md.
+Any deviation is considered a protocol break.

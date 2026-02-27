@@ -18,5 +18,6 @@ dev_dependencies:
 
 flutter:
   shaders:
+    - assets/shaders/core/morph_engine.frag
     - assets/shaders/core/morph_paper_rip.frag
     - assets/shaders/core/morph_frosted_glass.frag
