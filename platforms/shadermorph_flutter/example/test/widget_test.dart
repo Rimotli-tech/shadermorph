@@ -5,7 +5,7 @@ import 'package:example/main.dart';
 
 void main() {
   test('gallery app widget can be constructed', () {
-    const app = MorphDemo();
+    const app = MorphShaderDemo();
     expect(app, isA<Widget>());
   });
 }
