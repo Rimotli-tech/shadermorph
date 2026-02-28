@@ -9,8 +9,9 @@ class MorphShaderAdapter {
   static const int scalarCount = 5;
   static const int sourceStart = scalarCount;
   static const int targetStart = sourceStart + (maxPairs * 4);
-  static const int totalFloatCount = targetStart + (maxPairs * 4);
+  static const int totalFloatCount = targetStart + (maxPairs * 4) + 2;
   static const int debugModeIndex = 69;
+  static const int texFlipYIndex = 70;
 
   static void bind(
     ui.FragmentShader shader, {
@@ -23,6 +24,7 @@ class MorphShaderAdapter {
     required ui.Image texFrom,
     required ui.Image texTo,
     required double debugMode,
+    required double texFlipY,
   }) {
     shader.setFloat(0, resolutionPx.width);
     shader.setFloat(1, resolutionPx.height);
@@ -48,6 +50,7 @@ class MorphShaderAdapter {
     }
 
     shader.setFloat(debugModeIndex, debugMode);
+    shader.setFloat(texFlipYIndex, texFlipY);
 
     shader.setImageSampler(0, texFrom);
     shader.setImageSampler(1, texTo);

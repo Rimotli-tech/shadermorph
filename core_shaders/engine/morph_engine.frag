@@ -13,6 +13,7 @@ uniform float u_morphStyle;
 uniform vec4 u_sourceRects[8];
 uniform vec4 u_targetRects[8];
 uniform float u_debugMode;
+uniform float u_texFlipY;
 
 #if __VERSION__ >= 300
 out vec4 fragColor;
@@ -35,6 +36,10 @@ bool containsPoint(vec2 uv, vec4 rect) {
   return uv.x >= minPt.x && uv.x <= maxPt.x && uv.y >= minPt.y && uv.y <= maxPt.y;
 }
 
+vec2 sampleUV(vec2 v) {
+  return (u_texFlipY > 0.5) ? vec2(v.x, 1.0 - v.y) : v;
+}
+
 void main() {
   vec2 safeResolution = max(u_resolution, vec2(1.0));
   vec2 rawUV = gl_FragCoord.xy / safeResolution;
@@ -51,6 +56,16 @@ void main() {
 
   if (debugMode == 1) {
     SM_OUT = vec4(uv.x, uv.y, 0.0, 1.0);
+    return;
+  }
+
+  if (debugMode == 4) {
+    SM_OUT = SM_TEXTURE(u_texFrom, sampleUV(uv));
+    return;
+  }
+
+  if (debugMode == 5) {
+    SM_OUT = SM_TEXTURE(u_texFrom, sampleUV(uv));
     return;
   }
 
@@ -102,8 +117,9 @@ void main() {
   }
 
   if (activeIndex < 0) {
-    vec4 bgFrom = SM_TEXTURE(u_texFrom, uv);
-    vec4 bgTo = SM_TEXTURE(u_texTo, uv);
+    vec2 uvSample = sampleUV(uv);
+    vec4 bgFrom = SM_TEXTURE(u_texFrom, uvSample);
+    vec4 bgTo = SM_TEXTURE(u_texTo, uvSample);
     SM_OUT = mix(bgFrom, bgTo, p);
     return;
   }
@@ -126,7 +142,7 @@ void main() {
   fromUV = clamp(fromUV, vec2(0.0), vec2(1.0));
   toUV = clamp(toUV, vec2(0.0), vec2(1.0));
 
-  vec4 cFrom = SM_TEXTURE(u_texFrom, fromUV);
-  vec4 cTo = SM_TEXTURE(u_texTo, toUV);
+  vec4 cFrom = SM_TEXTURE(u_texFrom, sampleUV(fromUV));
+  vec4 cTo = SM_TEXTURE(u_texTo, sampleUV(toUV));
   SM_OUT = mix(cFrom, cTo, p);
 }

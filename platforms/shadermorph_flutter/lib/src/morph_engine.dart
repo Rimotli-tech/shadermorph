@@ -21,6 +21,7 @@ class MorphEngine {
     required double progress,
     required int morphStyle,
     required double debugMode,
+    required double texFlipY,
     required MorphMetadata metadata,
     required ui.Image texFrom,
     required ui.Image texTo,
@@ -37,6 +38,7 @@ class MorphEngine {
       texFrom: texFrom,
       texTo: texTo,
       debugMode: debugMode,
+      texFlipY: texFlipY,
     );
     return shader;
   }
