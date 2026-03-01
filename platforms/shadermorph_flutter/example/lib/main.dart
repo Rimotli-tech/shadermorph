@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 // Assuming your package name in pubspec is shadermorph_flutter
 import 'package:shadermorph_flutter/src/tracker.dart';
 import 'package:shadermorph_flutter/src/coordinator.dart';
+import 'package:shadermorph_flutter/src/models.dart';
 
 void main() => runApp(const MaterialApp(home: ShaderMorph()));
 
@@ -18,9 +19,10 @@ class _ShaderMorphState extends State<ShaderMorph>
   bool _isActive = false;
   late AnimationController _controller;
   final GlobalKey _paintKey = GlobalKey();
-  ui.Image? _snapshot;
-  Rect? _sourceRect; // NEW: Storing the geometry
+
   ui.FragmentProgram? _program;
+
+  MorphSnapshot? _snapshot;
 
   @override
   void initState() {
@@ -34,38 +36,30 @@ class _ShaderMorphState extends State<ShaderMorph>
 
   Future<void> _loadResources() async {
     final prog = await ui.FragmentProgram.fromAsset(
-      'packages/shadermorph_flutter/core_shaders/engine/shader_engine.frag',
+      'packages/shadermorph_flutter/shaders/shader_engine.frag',
     );
-
-    // Automation: Wait for the frame to draw, then capture
-    //WidgetsBinding.instance.addPostFrameCallback((_) => _takeSnapshot());
 
     setState(() => _program = prog);
   }
 
   Future<void> _takeSnapshot() async {
-    // BLOCK 1: Using the Tracker (The Camera)
     final data = await MorphTracker.capture(_paintKey);
 
     setState(() {
-      _snapshot = data['image'];
-      _sourceRect = data['rect'];
+      _snapshot = data; // Store the whole object
       _isActive = true;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_program == null) {
+    if (_program == null)
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
 
     return Scaffold(
       body: Stack(
         children: [
-          // THE REAL WIDGET: Hidden in plain sight
           Opacity(
-            // Hide it when active
             opacity: _isActive ? 0.0 : 1.0,
             child: Center(
               child: GestureDetector(
@@ -91,7 +85,8 @@ class _ShaderMorphState extends State<ShaderMorph>
             ),
           ),
 
-          if (_isActive && _snapshot != null && _sourceRect != null)
+          // THE SHADER OVERLAY
+          if (_isActive && _snapshot != null)
             Positioned.fill(
               child: AnimatedBuilder(
                 animation: _controller,
@@ -99,9 +94,10 @@ class _ShaderMorphState extends State<ShaderMorph>
                   return CustomPaint(
                     painter: MorphPainter(
                       program: _program!,
-                      image: _snapshot!,
-                      sourceRect: _sourceRect!,
+                      snapshot: _snapshot!, // FIX: Pass the object, not pieces
                       time: _controller.value * 6.28,
+                      progress:
+                          _controller.value, // FIX: Pass the required progress
                     ),
                   );
                 },
@@ -116,31 +112,32 @@ class _ShaderMorphState extends State<ShaderMorph>
 class MorphPainter extends CustomPainter {
   MorphPainter({
     required this.program,
-    required this.image,
-    required this.sourceRect,
+    required this.snapshot, // Updated to take the object
     required this.time,
+    required this.progress, // Added required progress
   });
 
   final ui.FragmentProgram program;
-  final ui.Image image;
-  final Rect sourceRect;
+  final MorphSnapshot snapshot;
   final double time;
+  final double progress;
 
   @override
   void paint(Canvas canvas, Size size) {
     final shader = program.fragmentShader();
 
+    // FIX: Match the new Coordinator signature exactly
     MorphCoordinator.setUniforms(
       shader: shader,
       viewport: size,
-      sourceRect: sourceRect,
-      texture: image,
+      sourceRect: snapshot, // The Coordinator uses this snapshot for image/rect
       time: time,
+      progress: progress, // Passing the float to Slot 7
     );
 
     canvas.drawRect(Offset.zero & size, Paint()..shader = shader);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant MorphPainter oldDelegate) => true;
 }

@@ -1,9 +1,13 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'models.dart';
 
 class MorphTracker {
-  static Future<Map<String, dynamic>> capture(GlobalKey key) async {
+  static Future<MorphSnapshot> capture(GlobalKey key) async {
+    final context = key.currentContext;
+    if (context == null) throw Exception("MorphTracker: Context not found.");
+
     final renderBox = key.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) throw Exception("Could not find RenderBox");
 
@@ -19,10 +23,9 @@ class MorphTracker {
 
     // Get Pixels
     final boundary = renderBox as RenderRepaintBoundary;
-    final image = await boundary.toImage(
-      pixelRatio: ui.window.devicePixelRatio,
-    );
+    final pixelRatio = View.of(context).devicePixelRatio;
+    final image = await boundary.toImage(pixelRatio: pixelRatio);
 
-    return {'image': image, 'rect': rect};
+    return MorphSnapshot(image: image, rect: rect, pixelRatio: pixelRatio);
   }
 }
