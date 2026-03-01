@@ -15,6 +15,7 @@ class ShaderMorph extends StatefulWidget {
 
 class _ShaderMorphState extends State<ShaderMorph>
     with SingleTickerProviderStateMixin {
+  bool _isActive = false;
   late AnimationController _controller;
   final GlobalKey _paintKey = GlobalKey();
   ui.Image? _snapshot;
@@ -37,7 +38,7 @@ class _ShaderMorphState extends State<ShaderMorph>
     );
 
     // Automation: Wait for the frame to draw, then capture
-    WidgetsBinding.instance.addPostFrameCallback((_) => _takeSnapshot());
+    //WidgetsBinding.instance.addPostFrameCallback((_) => _takeSnapshot());
 
     setState(() => _program = prog);
   }
@@ -49,6 +50,7 @@ class _ShaderMorphState extends State<ShaderMorph>
     setState(() {
       _snapshot = data['image'];
       _sourceRect = data['rect'];
+      _isActive = true;
     });
   }
 
@@ -62,19 +64,26 @@ class _ShaderMorphState extends State<ShaderMorph>
       body: Stack(
         children: [
           // THE REAL WIDGET: Hidden in plain sight
-          Center(
-            child: RepaintBoundary(
-              key: _paintKey,
-              child: Container(
-                width: 200,
-                height: 200,
-                color: Colors.blue,
-                child: const Center(
-                  child: Text(
-                    "HELLO GPU",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+          Opacity(
+            // Hide it when active
+            opacity: _isActive ? 0.0 : 1.0,
+            child: Center(
+              child: GestureDetector(
+                onTap: _takeSnapshot,
+                child: RepaintBoundary(
+                  key: _paintKey,
+                  child: Container(
+                    width: 200,
+                    height: 200,
+                    color: Colors.blue,
+                    child: const Center(
+                      child: Text(
+                        "HELLO GPU",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -82,7 +91,7 @@ class _ShaderMorphState extends State<ShaderMorph>
             ),
           ),
 
-          if (_snapshot != null && _sourceRect != null)
+          if (_isActive && _snapshot != null && _sourceRect != null)
             Positioned.fill(
               child: AnimatedBuilder(
                 animation: _controller,
@@ -92,9 +101,7 @@ class _ShaderMorphState extends State<ShaderMorph>
                       program: _program!,
                       image: _snapshot!,
                       sourceRect: _sourceRect!,
-                      time:
-                          _controller.value *
-                          6.28, // Pass 0 to 2*PI for a full wave cycle
+                      time: _controller.value * 6.28,
                     ),
                   );
                 },
