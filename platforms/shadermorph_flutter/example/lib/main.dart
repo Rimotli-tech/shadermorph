@@ -1,6 +1,9 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
+
+// Assuming your package name in pubspec is shadermorph_flutter
+import 'package:shadermorph_flutter/src/tracker.dart';
+import 'package:shadermorph_flutter/src/coordinator.dart';
 
 void main() => runApp(const MaterialApp(home: ShaderMorph()));
 
@@ -10,36 +13,43 @@ class ShaderMorph extends StatefulWidget {
   State<ShaderMorph> createState() => _ShaderMorphState();
 }
 
-class _ShaderMorphState extends State<ShaderMorph> {
+class _ShaderMorphState extends State<ShaderMorph>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
   final GlobalKey _paintKey = GlobalKey();
   ui.Image? _snapshot;
+  Rect? _sourceRect; // NEW: Storing the geometry
   ui.FragmentProgram? _program;
 
   @override
   void initState() {
     super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(); // This makes it loop forever 0.0 -> 1.0
     _loadResources();
   }
 
   Future<void> _loadResources() async {
-    // 1. Load the shader
     final prog = await ui.FragmentProgram.fromAsset(
       'packages/shadermorph_flutter/core_shaders/engine/shader_engine.frag',
     );
 
-    // 2. Schedule the snapshot for AFTER the first frame is drawn
+    // Automation: Wait for the frame to draw, then capture
     WidgetsBinding.instance.addPostFrameCallback((_) => _takeSnapshot());
 
     setState(() => _program = prog);
   }
 
   Future<void> _takeSnapshot() async {
-    final boundary =
-        _paintKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-    if (boundary == null) return;
+    // BLOCK 1: Using the Tracker (The Camera)
+    final data = await MorphTracker.capture(_paintKey);
 
-    final image = await boundary.toImage();
-    setState(() => _snapshot = image);
+    setState(() {
+      _snapshot = data['image'];
+      _sourceRect = data['rect'];
+    });
   }
 
   @override
@@ -51,7 +61,7 @@ class _ShaderMorphState extends State<ShaderMorph> {
     return Scaffold(
       body: Stack(
         children: [
-          // THE CAMERA: Capturing this container
+          // THE REAL WIDGET: Hidden in plain sight
           Center(
             child: RepaintBoundary(
               key: _paintKey,
@@ -72,10 +82,23 @@ class _ShaderMorphState extends State<ShaderMorph> {
             ),
           ),
 
-          // THE ARTIST: The Shader sitting on top
-          if (_snapshot != null)
+          if (_snapshot != null && _sourceRect != null)
             Positioned.fill(
-              child: CustomPaint(painter: MorphPainter(_program!, _snapshot!)),
+              child: AnimatedBuilder(
+                animation: _controller,
+                builder: (context, _) {
+                  return CustomPaint(
+                    painter: MorphPainter(
+                      program: _program!,
+                      image: _snapshot!,
+                      sourceRect: _sourceRect!,
+                      time:
+                          _controller.value *
+                          6.28, // Pass 0 to 2*PI for a full wave cycle
+                    ),
+                  );
+                },
+              ),
             ),
         ],
       ),
@@ -84,16 +107,29 @@ class _ShaderMorphState extends State<ShaderMorph> {
 }
 
 class MorphPainter extends CustomPainter {
-  MorphPainter(this.program, this.image);
+  MorphPainter({
+    required this.program,
+    required this.image,
+    required this.sourceRect,
+    required this.time,
+  });
+
   final ui.FragmentProgram program;
   final ui.Image image;
+  final Rect sourceRect;
+  final double time;
 
   @override
   void paint(Canvas canvas, Size size) {
     final shader = program.fragmentShader();
-    shader.setFloat(0, size.width);
-    shader.setFloat(1, size.height);
-    shader.setImageSampler(0, image);
+
+    MorphCoordinator.setUniforms(
+      shader: shader,
+      viewport: size,
+      sourceRect: sourceRect,
+      texture: image,
+      time: time,
+    );
 
     canvas.drawRect(Offset.zero & size, Paint()..shader = shader);
   }
