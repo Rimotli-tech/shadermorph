@@ -25,6 +25,6 @@ void main() {
     vec4 color = texture(uTexture, uv);
     fragColor = color * (1.0 - uProgress);
   } else {
-    fragColor = vec4(0.0);
+    fragColor = vec4(1.0, 1.0, 1.0, 0.0);
   }
 }

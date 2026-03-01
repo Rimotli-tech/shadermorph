@@ -1,17 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:example/main.dart';
+import 'package:shadermorph_flutter/shadermorph_flutter.dart';
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets('ShaderMorph renders child and responds to tap', (tester) async {
+    // 1. Build the widget with a required child
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: ShaderMorph(child: Text('TARGET WIDGET'))),
+      ),
+    );
 
-  testWidgets('app builds and toggle works', (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: ShaderMorph()));
-    await tester.pump(const Duration(milliseconds: 16));
+    // 2. Verify the initial state: The child text should be visible
+    expect(find.text('TARGET WIDGET'), findsOneWidget);
 
-    expect(find.text('Toggle Morph'), findsOneWidget);
-    await tester.tap(find.text('Toggle Morph'));
-    await tester.pump(const Duration(milliseconds: 16));
+    // 3. Trigger the morph by tapping the widget
+    await tester.tap(find.text('TARGET WIDGET'));
+
+    // 4. Start the animation frames
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // After tapping, the ShaderMorph enters "animating" state.
+    // In our logic, the real widget Opacity becomes 0.0.
+    final opacityWidget = tester.widget<Opacity>(
+      find.ancestor(
+        of: find.text('TARGET WIDGET'),
+        matching: find.byType(Opacity),
+      ),
+    );
+
+    expect(opacityWidget.opacity, 0.0);
   });
 }
