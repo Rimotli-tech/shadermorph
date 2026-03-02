@@ -1,7 +1,7 @@
-library shadermorph_flutter;
-
 // Export the data models
 export 'src/models.dart';
+export 'src/controller.dart';
+export 'src/navigation.dart';
 
 // Export the primary widget wrapper
 export 'src/widgets/morph_host.dart';

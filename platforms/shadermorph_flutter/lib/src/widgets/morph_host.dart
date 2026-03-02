@@ -4,16 +4,19 @@ import 'package:flutter/material.dart';
 import '../models.dart';
 import '../tracker.dart';
 import '../coordinator.dart';
+import '../controller.dart';
 
 class ShaderMorph extends StatefulWidget {
   final Widget source;
   final Widget destination;
   final Duration duration;
+  final ShaderMorphController controller;
 
   const ShaderMorph({
     super.key,
     required this.source,
     required this.destination,
+    required this.controller,
     this.duration = const Duration(milliseconds: 800),
   });
 
@@ -22,14 +25,16 @@ class ShaderMorph extends StatefulWidget {
 }
 
 class _ShaderMorphState extends State<ShaderMorph>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin
+    implements ShaderMorphPlaybackDelegate {
   final GlobalKey _sourcePaintKey = GlobalKey();
   final GlobalKey _destinationPaintKey = GlobalKey();
   late AnimationController _controller;
 
   MorphPairSnapshot? _snapshot;
   ui.FragmentProgram? _program;
-  bool _isAnimating = false;
+  MorphDirection _activeDirection = MorphDirection.forward;
+  MorphPlaybackState _playbackState = MorphPlaybackState.idleSource;
   bool _sourceVisible = true;
   bool _destinationVisible = false;
   OverlayEntry? _overlayEntry;
@@ -40,9 +45,11 @@ class _ShaderMorphState extends State<ShaderMorph>
     _controller = AnimationController(vsync: this, duration: widget.duration)
       ..addStatusListener((status) {
         if (status == AnimationStatus.completed) {
-          _cleanupMorph();
+          _completeMorph();
         }
       });
+    widget.controller.attach(this);
+    widget.controller.setStateFromHost(_playbackState);
     _loadShader();
   }
 
@@ -57,25 +64,50 @@ class _ShaderMorphState extends State<ShaderMorph>
     }
   }
 
-  Future<void> _runMorph() async {
-    if (_program == null || _isAnimating) return;
+  @override
+  void didUpdateWidget(covariant ShaderMorph oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.detach(this);
+      widget.controller.attach(this);
+      widget.controller.setStateFromHost(_playbackState);
+    }
+    if (oldWidget.duration != widget.duration) {
+      _controller.duration = widget.duration;
+    }
+  }
 
+  @override
+  Future<bool> play({required MorphDirection direction}) async {
+    if (_program == null) return false;
+    if (_isAnimating) return false;
+    if (!_canPlay(direction)) return false;
+
+    _activeDirection = direction;
     final data = await MorphTracker.capturePair(
-      sourceKey: _sourcePaintKey,
-      destinationKey: _destinationPaintKey,
+      sourceKey: direction == MorphDirection.forward
+          ? _sourcePaintKey
+          : _destinationPaintKey,
+      destinationKey: direction == MorphDirection.forward
+          ? _destinationPaintKey
+          : _sourcePaintKey,
     );
 
-    if (!mounted) return;
+    if (!mounted) return false;
 
     setState(() {
       _snapshot = data;
-      _isAnimating = true;
+      _playbackState = direction == MorphDirection.forward
+          ? MorphPlaybackState.animatingForward
+          : MorphPlaybackState.animatingReverse;
       _sourceVisible = false;
       _destinationVisible = false;
     });
+    widget.controller.setStateFromHost(_playbackState);
 
     _showOverlay();
-    _controller.forward(from: 0.0);
+    await _controller.forward(from: 0.0);
+    return true;
   }
 
   void _showOverlay() {
@@ -106,40 +138,55 @@ class _ShaderMorphState extends State<ShaderMorph>
     overlayState.insert(_overlayEntry!);
   }
 
-  void _cleanupMorph() {
+  bool get _isAnimating =>
+      _playbackState == MorphPlaybackState.animatingForward ||
+      _playbackState == MorphPlaybackState.animatingReverse;
+
+  bool _canPlay(MorphDirection direction) {
+    if (direction == MorphDirection.forward) {
+      return _playbackState == MorphPlaybackState.idleSource;
+    }
+    return _playbackState == MorphPlaybackState.idleDestination;
+  }
+
+  void _completeMorph() {
     _overlayEntry?.remove();
     _overlayEntry = null;
     if (mounted) {
       setState(() {
-        _isAnimating = false;
         _snapshot = null;
-        _sourceVisible = false;
-        _destinationVisible = true;
+        if (_activeDirection == MorphDirection.forward) {
+          _playbackState = MorphPlaybackState.idleDestination;
+          _sourceVisible = false;
+          _destinationVisible = true;
+        } else {
+          _playbackState = MorphPlaybackState.idleSource;
+          _sourceVisible = true;
+          _destinationVisible = false;
+        }
       });
+      widget.controller.setStateFromHost(_playbackState);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: _runMorph,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Opacity(
-            opacity: _destinationVisible ? 1.0 : 0.01,
-            child: RepaintBoundary(
-              key: _destinationPaintKey,
-              child: widget.destination,
-            ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Opacity(
+          opacity: _destinationVisible ? 1.0 : 0.01,
+          child: RepaintBoundary(
+            key: _destinationPaintKey,
+            child: widget.destination,
           ),
-          const Divider(height: 50),
-          Opacity(
-            opacity: _sourceVisible ? 1.0 : 0.0,
-            child: RepaintBoundary(key: _sourcePaintKey, child: widget.source),
-          ),
-        ],
-      ),
+        ),
+        const Divider(height: 50),
+        Opacity(
+          opacity: _sourceVisible ? 1.0 : 0.0,
+          child: RepaintBoundary(key: _sourcePaintKey, child: widget.source),
+        ),
+      ],
     );
   }
 
@@ -147,6 +194,8 @@ class _ShaderMorphState extends State<ShaderMorph>
   void dispose() {
     _overlayEntry?.remove();
     _overlayEntry = null;
+    widget.controller.detach(this);
+    widget.controller.setStateFromHost(MorphPlaybackState.disposed);
     _controller.dispose();
     super.dispose();
   }
