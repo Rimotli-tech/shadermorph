@@ -25,12 +25,13 @@ vec4 drawSourceMove(vec2 screenCoord) {
 
   vec2 uv = (screenCoord - movedRect.xy) / movedRect.zw;
   uv.y = 1.0 - uv.y;
-  return texture(uTexture, uv);
+  vec4 sourceColor = texture(uTexture, uv);
+  vec4 targetColor = texture(uTargetTexture, uv);
+  return mix(sourceColor, targetColor, uProgress);
 }
 
 vec4 drawWobble(vec2 screenCoord, vec4 rect, sampler2D tex) {
-  float wave = sin((screenCoord.y / rect.w) * 15.0 + uTime) * 10.0;
-  vec2 shiftedCoord = vec2(screenCoord.x + wave, screenCoord.y);
+  vec2 shiftedCoord = screenCoord;
 
   bool isInsideX = shiftedCoord.x >= rect.x && shiftedCoord.x <= rect.x + rect.z;
   bool isInsideY = shiftedCoord.y >= rect.y && shiftedCoord.y <= rect.y + rect.w;
