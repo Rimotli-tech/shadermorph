@@ -11,6 +11,23 @@ uniform sampler2D uTargetTexture;
 
 out vec4 fragColor;
 
+vec4 drawSourceMove(vec2 screenCoord) {
+  vec2 movedOrigin = mix(uSourceRect.xy, uTargetRect.xy, uProgress);
+  vec2 movedSize = mix(uSourceRect.zw, uTargetRect.zw, uProgress);
+  vec4 movedRect = vec4(movedOrigin, movedSize);
+
+  bool isInsideX = screenCoord.x >= movedRect.x && screenCoord.x <= movedRect.x + movedRect.z;
+  bool isInsideY = screenCoord.y >= movedRect.y && screenCoord.y <= movedRect.y + movedRect.w;
+
+  if (!isInsideX || !isInsideY) {
+    return vec4(0.0, 0.0, 0.0, 0.0);
+  }
+
+  vec2 uv = (screenCoord - movedRect.xy) / movedRect.zw;
+  uv.y = 1.0 - uv.y;
+  return texture(uTexture, uv);
+}
+
 vec4 drawWobble(vec2 screenCoord, vec4 rect, sampler2D tex) {
   float wave = sin((screenCoord.y / rect.w) * 15.0 + uTime) * 10.0;
   vec2 shiftedCoord = vec2(screenCoord.x + wave, screenCoord.y);
@@ -24,16 +41,16 @@ vec4 drawWobble(vec2 screenCoord, vec4 rect, sampler2D tex) {
 
   vec2 uv = (shiftedCoord - rect.xy) / rect.zw;
   uv.y = 1.0 - uv.y;
-  return texture(tex, uv) * (1.0 - uProgress);
+  return texture(tex, uv);
 }
 
 void main() {
   vec2 screenCoord = FlutterFragCoord().xy;
-  vec4 sourceColor = drawWobble(screenCoord, uSourceRect, uTexture);
+  vec4 sourceColor = drawSourceMove(screenCoord);
   vec4 targetColor = drawWobble(screenCoord, uTargetRect, uTargetTexture);
 
-  fragColor = sourceColor;
-  if (targetColor.a > 0.0) {
-    fragColor = targetColor;
+  fragColor = targetColor;
+  if (sourceColor.a > 0.0) {
+    fragColor = sourceColor;
   }
 }

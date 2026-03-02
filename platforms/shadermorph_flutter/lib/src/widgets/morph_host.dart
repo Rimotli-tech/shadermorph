@@ -35,12 +35,7 @@ class _ShaderMorphState extends State<ShaderMorph>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: widget.duration)
-      ..addStatusListener((status) {
-        if (status == AnimationStatus.completed) {
-          _cleanupMorph();
-        }
-      });
+    _controller = AnimationController(vsync: this, duration: widget.duration);
     _loadShader();
   }
 

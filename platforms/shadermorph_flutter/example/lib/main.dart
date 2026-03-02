@@ -27,7 +27,35 @@ class ExampleApp extends StatelessWidget {
       ),
       child: const Center(
         child: Text(
-          "TAP TO MORPH",
+          "Source",
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMorphCard_2() {
+    return Container(
+      width: 200,
+      height: 100,
+      decoration: BoxDecoration(
+        color: const Color.fromARGB(255, 255, 68, 140),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black45,
+            blurRadius: 10,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: const Center(
+        child: Text(
+          "Destination",
           style: TextStyle(
             color: Colors.white,
             fontSize: 20,
@@ -47,7 +75,7 @@ class ExampleApp extends StatelessWidget {
           duration: const Duration(
             milliseconds: 1000,
           ), // Customize speed easily
-          destination: _buildMorphCard(),
+          destination: _buildMorphCard_2(),
           source: _buildMorphCard(),
         ),
       ),
