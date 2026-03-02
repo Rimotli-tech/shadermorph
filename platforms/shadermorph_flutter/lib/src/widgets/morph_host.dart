@@ -30,12 +30,19 @@ class _ShaderMorphState extends State<ShaderMorph>
   MorphPairSnapshot? _snapshot;
   ui.FragmentProgram? _program;
   bool _isAnimating = false;
+  bool _sourceVisible = true;
+  bool _destinationVisible = false;
   OverlayEntry? _overlayEntry;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: widget.duration);
+    _controller = AnimationController(vsync: this, duration: widget.duration)
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          _cleanupMorph();
+        }
+      });
     _loadShader();
   }
 
@@ -46,7 +53,7 @@ class _ShaderMorphState extends State<ShaderMorph>
       );
       if (mounted) setState(() => _program = prog);
     } catch (e) {
-      debugPrint("ShaderMorph: Failed to load shader.");
+      debugPrint('ShaderMorph: Failed to load shader.');
     }
   }
 
@@ -63,6 +70,8 @@ class _ShaderMorphState extends State<ShaderMorph>
     setState(() {
       _snapshot = data;
       _isAnimating = true;
+      _sourceVisible = false;
+      _destinationVisible = false;
     });
 
     _showOverlay();
@@ -70,6 +79,8 @@ class _ShaderMorphState extends State<ShaderMorph>
   }
 
   void _showOverlay() {
+    if (_snapshot == null || _program == null) return;
+
     final overlayState = Overlay.of(context);
 
     _overlayEntry = OverlayEntry(
@@ -102,6 +113,8 @@ class _ShaderMorphState extends State<ShaderMorph>
       setState(() {
         _isAnimating = false;
         _snapshot = null;
+        _sourceVisible = false;
+        _destinationVisible = true;
       });
     }
   }
@@ -110,28 +123,31 @@ class _ShaderMorphState extends State<ShaderMorph>
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: _runMorph,
-      // Hide the real widget while the overlay handles the animation
-      child: Opacity(
-        opacity: _isAnimating ? 0.0 : 1.0,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RepaintBoundary(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Opacity(
+            opacity: _destinationVisible ? 1.0 : 0.01,
+            child: RepaintBoundary(
               key: _destinationPaintKey,
               child: widget.destination,
             ),
-            Divider(height: 50),
-            RepaintBoundary(key: _sourcePaintKey, child: widget.source),
-          ],
-        ),
+          ),
+          const Divider(height: 50),
+          Opacity(
+            opacity: _sourceVisible ? 1.0 : 0.0,
+            child: RepaintBoundary(key: _sourcePaintKey, child: widget.source),
+          ),
+        ],
       ),
     );
   }
 
   @override
   void dispose() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
     _controller.dispose();
-    _cleanupMorph();
     super.dispose();
   }
 }
@@ -153,7 +169,7 @@ class _InternalMorphPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     MorphCoordinator.setUniforms(
       shader: shader,
-      viewport: size, // This is now exactly the size of the device screen
+      viewport: size,
       sourceRect: snapshot.source,
       targetRect: snapshot.destination,
       time: time,

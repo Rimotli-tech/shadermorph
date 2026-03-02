@@ -73,7 +73,7 @@ class ExampleApp extends StatelessWidget {
       body: Center(
         child: ShaderMorph(
           duration: const Duration(
-            milliseconds: 1000,
+            milliseconds: 3000,
           ), // Customize speed easily
           destination: _buildMorphCard_2(),
           source: _buildMorphCard(),
