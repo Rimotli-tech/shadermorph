@@ -6,12 +6,14 @@ import '../tracker.dart';
 import '../coordinator.dart';
 
 class ShaderMorph extends StatefulWidget {
-  final Widget child;
+  final Widget source;
+  final Widget destination;
   final Duration duration;
 
   const ShaderMorph({
     super.key,
-    required this.child,
+    required this.source,
+    required this.destination,
     this.duration = const Duration(milliseconds: 800),
   });
 
@@ -21,10 +23,11 @@ class ShaderMorph extends StatefulWidget {
 
 class _ShaderMorphState extends State<ShaderMorph>
     with SingleTickerProviderStateMixin {
-  final GlobalKey _paintKey = GlobalKey();
+  final GlobalKey _sourcePaintKey = GlobalKey();
+  final GlobalKey _destinationPaintKey = GlobalKey();
   late AnimationController _controller;
 
-  MorphSnapshot? _snapshot;
+  MorphPairSnapshot? _snapshot;
   ui.FragmentProgram? _program;
   bool _isAnimating = false;
   OverlayEntry? _overlayEntry;
@@ -55,7 +58,10 @@ class _ShaderMorphState extends State<ShaderMorph>
   Future<void> _runMorph() async {
     if (_program == null || _isAnimating) return;
 
-    final data = await MorphTracker.capture(_paintKey);
+    final data = await MorphTracker.capturePair(
+      sourceKey: _sourcePaintKey,
+      destinationKey: _destinationPaintKey,
+    );
 
     if (!mounted) return;
 
@@ -112,7 +118,17 @@ class _ShaderMorphState extends State<ShaderMorph>
       // Hide the real widget while the overlay handles the animation
       child: Opacity(
         opacity: _isAnimating ? 0.0 : 1.0,
-        child: RepaintBoundary(key: _paintKey, child: widget.child),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RepaintBoundary(
+              key: _destinationPaintKey,
+              child: widget.destination,
+            ),
+            Divider(height: 50),
+            RepaintBoundary(key: _sourcePaintKey, child: widget.source),
+          ],
+        ),
       ),
     );
   }
@@ -127,7 +143,7 @@ class _ShaderMorphState extends State<ShaderMorph>
 
 class _InternalMorphPainter extends CustomPainter {
   final ui.FragmentShader shader;
-  final MorphSnapshot snapshot;
+  final MorphPairSnapshot snapshot;
   final double time;
   final double progress;
 
@@ -143,7 +159,8 @@ class _InternalMorphPainter extends CustomPainter {
     MorphCoordinator.setUniforms(
       shader: shader,
       viewport: size, // This is now exactly the size of the device screen
-      sourceRect: snapshot,
+      sourceRect: snapshot.source,
+      targetRect: snapshot.destination,
       time: time,
       progress: progress,
     );

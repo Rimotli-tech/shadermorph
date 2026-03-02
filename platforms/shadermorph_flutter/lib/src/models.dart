@@ -16,3 +16,13 @@ class MorphSnapshot {
   Size get size => rect.size;
   Offset get position => rect.topLeft;
 }
+
+class MorphPairSnapshot {
+  final MorphSnapshot source;
+  final MorphSnapshot destination;
+
+  MorphPairSnapshot({
+    required this.source,
+    required this.destination,
+  });
+}

@@ -4,6 +4,19 @@ import 'models.dart';
 
 class MorphTracker {
   static Future<MorphSnapshot> capture(GlobalKey key) async {
+    return _captureSingle(key);
+  }
+
+  static Future<MorphPairSnapshot> capturePair({
+    required GlobalKey sourceKey,
+    required GlobalKey destinationKey,
+  }) async {
+    final source = await _captureSingle(sourceKey);
+    final destination = await _captureSingle(destinationKey);
+    return MorphPairSnapshot(source: source, destination: destination);
+  }
+
+  static Future<MorphSnapshot> _captureSingle(GlobalKey key) async {
     final context = key.currentContext;
     if (context == null) throw Exception("MorphTracker: Context not found.");
 

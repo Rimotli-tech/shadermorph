@@ -7,6 +7,7 @@ class MorphCoordinator {
     required ui.FragmentShader shader,
     required Size viewport,
     required MorphSnapshot sourceRect,
+    required MorphSnapshot targetRect,
     required double time,
     required double progress,
   }) {
@@ -20,9 +21,15 @@ class MorphCoordinator {
     shader.setFloat(4, sourceRect.rect.width);
     shader.setFloat(5, sourceRect.rect.height);
 
-    shader.setFloat(6, time);
-    shader.setFloat(7, progress);
+    shader.setFloat(6, targetRect.rect.left);
+    shader.setFloat(7, targetRect.rect.top);
+    shader.setFloat(8, targetRect.rect.width);
+    shader.setFloat(9, targetRect.rect.height);
+
+    shader.setFloat(10, time);
+    shader.setFloat(11, progress);
 
     shader.setImageSampler(0, sourceRect.image);
+    shader.setImageSampler(1, targetRect.image);
   }
 }
