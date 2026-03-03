@@ -1,8 +1,82 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'models.dart';
+import 'models_v2.dart';
 
 class MorphTracker {
+  static Rect logicalRectToPhysicalRect({
+    required Rect logicalRect,
+    required double devicePixelRatio,
+  }) {
+    return Rect.fromLTWH(
+      logicalRect.left * devicePixelRatio,
+      logicalRect.top * devicePixelRatio,
+      logicalRect.width * devicePixelRatio,
+      logicalRect.height * devicePixelRatio,
+    );
+  }
+
+  static Size logicalSizeToPhysicalSize({
+    required Size logicalSize,
+    required double devicePixelRatio,
+  }) {
+    return Size(
+      logicalSize.width * devicePixelRatio,
+      logicalSize.height * devicePixelRatio,
+    );
+  }
+
+  static MorphRectNormV2 normalizePhysicalRectToV2({
+    required Rect physicalRect,
+    required Size resolutionPx,
+    bool clampToUnit = false,
+  }) {
+    if (!resolutionPx.width.isFinite ||
+        !resolutionPx.height.isFinite ||
+        resolutionPx.width <= 0.0 ||
+        resolutionPx.height <= 0.0) {
+      return MorphRectNormV2.zero;
+    }
+
+    final normalized = MorphRectNormV2(
+      x: physicalRect.left / resolutionPx.width,
+      y: physicalRect.top / resolutionPx.height,
+      w: physicalRect.width / resolutionPx.width,
+      h: physicalRect.height / resolutionPx.height,
+    );
+
+    if (!clampToUnit) {
+      return normalized;
+    }
+    return normalized.clampedToUnit();
+  }
+
+  static MorphRectNormV2 normalizeLogicalRectToV2({
+    required Rect logicalRect,
+    required Size logicalResolution,
+    required double devicePixelRatio,
+    bool clampToUnit = false,
+  }) {
+    if (!devicePixelRatio.isFinite || devicePixelRatio <= 0.0) {
+      return MorphRectNormV2.zero;
+    }
+
+    final physicalRect = logicalRectToPhysicalRect(
+      logicalRect: logicalRect,
+      devicePixelRatio: devicePixelRatio,
+    );
+    final physicalResolution = logicalSizeToPhysicalSize(
+      logicalSize: logicalResolution,
+      devicePixelRatio: devicePixelRatio,
+    );
+
+    return normalizePhysicalRectToV2(
+      physicalRect: physicalRect,
+      resolutionPx: physicalResolution,
+      clampToUnit: clampToUnit,
+    );
+  }
+
   static Future<MorphSnapshot> capture(GlobalKey key) async {
     return _captureSingle(key);
   }

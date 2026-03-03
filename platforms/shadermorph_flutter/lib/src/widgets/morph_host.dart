@@ -6,6 +6,11 @@ import '../tracker.dart';
 import '../coordinator.dart';
 import '../controller.dart';
 
+const bool _enableV2ShadowBinding = bool.fromEnvironment(
+  'SHADERMORPH_V2_SHADOW_BIND',
+  defaultValue: false,
+);
+
 class ShaderMorph extends StatefulWidget {
   final Widget source;
   final Widget destination;
@@ -33,6 +38,7 @@ class _ShaderMorphState extends State<ShaderMorph>
 
   MorphPairSnapshot? _snapshot;
   ui.FragmentProgram? _program;
+  ui.FragmentShader? _v2ShadowShader;
   MorphDirection _activeDirection = MorphDirection.forward;
   MorphPlaybackState _playbackState = MorphPlaybackState.idleSource;
   bool _sourceVisible = true;
@@ -58,7 +64,15 @@ class _ShaderMorphState extends State<ShaderMorph>
       final prog = await ui.FragmentProgram.fromAsset(
         'packages/shadermorph_flutter/shaders/shader_engine.frag',
       );
+      ui.FragmentShader? shadowShader;
+      if (_enableV2ShadowBinding) {
+        final shadowProgram = await ui.FragmentProgram.fromAsset(
+          'packages/shadermorph_flutter/shaders/shader_engine_v2.frag',
+        );
+        shadowShader = shadowProgram.fragmentShader();
+      }
       if (mounted) setState(() => _program = prog);
+      _v2ShadowShader = shadowShader;
     } catch (e) {
       debugPrint('ShaderMorph: Failed to load shader.');
     }
@@ -124,6 +138,7 @@ class _ShaderMorphState extends State<ShaderMorph>
               return CustomPaint(
                 painter: _InternalMorphPainter(
                   shader: _program!.fragmentShader(),
+                  v2ShadowShader: _v2ShadowShader,
                   snapshot: _snapshot!,
                   time: _controller.value * 6.28,
                   progress: _controller.value,
@@ -203,12 +218,14 @@ class _ShaderMorphState extends State<ShaderMorph>
 
 class _InternalMorphPainter extends CustomPainter {
   final ui.FragmentShader shader;
+  final ui.FragmentShader? v2ShadowShader;
   final MorphPairSnapshot snapshot;
   final double time;
   final double progress;
 
   _InternalMorphPainter({
     required this.shader,
+    required this.v2ShadowShader,
     required this.snapshot,
     required this.time,
     required this.progress,
@@ -216,6 +233,19 @@ class _InternalMorphPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (v2ShadowShader != null) {
+      final metadata = MorphCoordinator.buildSinglePairMetadataV2(
+        logicalViewport: size,
+        sourceRect: snapshot.source,
+        targetRect: snapshot.destination,
+        progress: progress,
+      );
+      MorphCoordinator.setUniformsV2Packed(
+        shader: v2ShadowShader!,
+        metadata: metadata,
+      );
+    }
+
     MorphCoordinator.setUniforms(
       shader: shader,
       viewport: size,

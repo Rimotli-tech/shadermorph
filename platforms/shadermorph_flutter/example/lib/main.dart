@@ -161,7 +161,7 @@ class _MorphDemoPageState extends State<MorphDemoPage> with RouteAware {
   Widget build(BuildContext context) {
     return ShaderMorphPopHandler(
       controller: _controller,
-      backPopMode: BackPopMode.immediatePopReset,
+      backPopMode: BackPopMode.reverseThenPop,
       child: Scaffold(
         appBar: AppBar(
           leading: IconButton(
@@ -177,7 +177,7 @@ class _MorphDemoPageState extends State<MorphDemoPage> with RouteAware {
             children: [
               ShaderMorph(
                 controller: _controller,
-                duration: const Duration(milliseconds: 3000),
+                duration: const Duration(milliseconds: 600),
                 destination: _buildMorphCard_2(),
                 source: _buildMorphCard(),
               ),
