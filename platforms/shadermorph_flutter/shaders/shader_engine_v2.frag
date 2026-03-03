@@ -1,27 +1,69 @@
 #version 460 core
 #include <flutter/runtime_effect.glsl>
 
-// Protocol-V2 uniforms (inactive asset for future controlled switch).
 uniform vec2 u_resolution;
 uniform float u_progress;
 uniform float u_pairCount;
 uniform float u_morphStyle;
 uniform vec4 u_sourceRects[8];
 uniform vec4 u_targetRects[8];
-
-// Keep sampler declarations for compatibility with current host texture setup.
 uniform sampler2D uTexture;
 uniform sampler2D uTargetTexture;
 
 out vec4 fragColor;
 
-void main() {
-  vec2 uv = FlutterFragCoord().xy / u_resolution;
-  uv = clamp(uv, vec2(0.0), vec2(1.0));
+bool isInsideRect(vec2 uv, vec4 rect) {
+  return uv.x >= rect.x &&
+      uv.x <= rect.x + rect.z &&
+      uv.y >= rect.y &&
+      uv.y <= rect.y + rect.w;
+}
 
-  // Inactive placeholder behavior: blend full-screen source/target by progress.
-  // Segment 6 will enable controlled routing to a full V2 render path.
-  vec4 sourceColor = texture(uTexture, vec2(uv.x, 1.0 - uv.y));
-  vec4 targetColor = texture(uTargetTexture, vec2(uv.x, 1.0 - uv.y));
-  fragColor = mix(sourceColor, targetColor, u_progress);
+vec4 samplePairColor(vec2 screenUv, vec4 sourceRect, vec4 targetRect) {
+  vec4 movedRect = vec4(
+    mix(sourceRect.xy, targetRect.xy, u_progress),
+    mix(sourceRect.zw, targetRect.zw, u_progress)
+  );
+
+  if (!isInsideRect(screenUv, movedRect)) {
+    return vec4(0.0);
+  }
+
+  float safeW = max(movedRect.z, 0.00001);
+  float safeH = max(movedRect.w, 0.00001);
+  vec2 localUv = vec2(
+    (screenUv.x - movedRect.x) / safeW,
+    (screenUv.y - movedRect.y) / safeH
+  );
+  localUv = clamp(localUv, vec2(0.0), vec2(1.0));
+  localUv.y = 1.0 - localUv.y;
+
+  vec4 sourceColor = texture(uTexture, localUv);
+  vec4 targetColor = texture(uTargetTexture, localUv);
+  return mix(sourceColor, targetColor, u_progress);
+}
+
+void main() {
+  vec2 safeResolution = max(u_resolution, vec2(0.00001));
+  vec2 screenUv = FlutterFragCoord().xy / safeResolution;
+  vec2 backgroundUv = clamp(screenUv, vec2(0.0), vec2(1.0));
+
+  // Background remains transparent outside active moved rect membership.
+  vec4 color = vec4(0.0);
+
+  int cappedPairCount = clamp(int(u_pairCount + 0.5), 0, 8);
+  for (int i = 0; i < 8; i++) {
+    if (i >= cappedPairCount) {
+      break;
+    }
+    vec4 sampled = samplePairColor(screenUv, u_sourceRects[i], u_targetRects[i]);
+    if (sampled.a > 0.0) {
+      color = sampled;
+      break;
+    }
+  }
+
+  // Keep background UV clamped as protocol safety rule.
+  vec4 _unusedBg = texture(uTexture, vec2(backgroundUv.x, 1.0 - backgroundUv.y));
+  fragColor = color;
 }

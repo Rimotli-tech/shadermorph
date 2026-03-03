@@ -65,3 +65,22 @@ ShaderMorphPopHandler(
 - `BackPopMode.immediatePopReset`: pop immediately and reset to source state.
 
 For cross-route mode, use `CrossRouteMorphPopHandler`.
+
+## Protocol-V2 Controlled Switches
+
+Segmented V2 rollout uses compile-time flags (all default `false`):
+
+- `SHADERMORPH_V2_SHADOW_BIND=true`
+  - Binds V2 uniforms in shadow mode while keeping V1 render path active.
+- `SHADERMORPH_V2_RENDER_SINGLE_PAGE=true`
+  - Switches single-page `ShaderMorph` overlay rendering to V2 shader.
+- `SHADERMORPH_V2_RENDER_CROSS_ROUTE=true`
+  - Switches cross-route overlay rendering to V2 shader.
+
+Example:
+
+```bash
+flutter run \
+  --dart-define=SHADERMORPH_V2_SHADOW_BIND=true \
+  --dart-define=SHADERMORPH_V2_RENDER_SINGLE_PAGE=true
+```

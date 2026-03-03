@@ -10,6 +10,10 @@ const bool _enableV2ShadowBinding = bool.fromEnvironment(
   'SHADERMORPH_V2_SHADOW_BIND',
   defaultValue: false,
 );
+const bool _enableV2SinglePageRender = bool.fromEnvironment(
+  'SHADERMORPH_V2_RENDER_SINGLE_PAGE',
+  defaultValue: false,
+);
 
 class ShaderMorph extends StatefulWidget {
   final Widget source;
@@ -39,6 +43,7 @@ class _ShaderMorphState extends State<ShaderMorph>
   MorphPairSnapshot? _snapshot;
   ui.FragmentProgram? _program;
   ui.FragmentShader? _v2ShadowShader;
+  ui.FragmentShader? _v2RenderShader;
   MorphDirection _activeDirection = MorphDirection.forward;
   MorphPlaybackState _playbackState = MorphPlaybackState.idleSource;
   bool _sourceVisible = true;
@@ -65,14 +70,21 @@ class _ShaderMorphState extends State<ShaderMorph>
         'packages/shadermorph_flutter/shaders/shader_engine.frag',
       );
       ui.FragmentShader? shadowShader;
-      if (_enableV2ShadowBinding) {
+      ui.FragmentShader? renderShader;
+      if (_enableV2ShadowBinding || _enableV2SinglePageRender) {
         final shadowProgram = await ui.FragmentProgram.fromAsset(
           'packages/shadermorph_flutter/shaders/shader_engine_v2.frag',
         );
-        shadowShader = shadowProgram.fragmentShader();
+        if (_enableV2ShadowBinding) {
+          shadowShader = shadowProgram.fragmentShader();
+        }
+        if (_enableV2SinglePageRender) {
+          renderShader = shadowProgram.fragmentShader();
+        }
       }
       if (mounted) setState(() => _program = prog);
       _v2ShadowShader = shadowShader;
+      _v2RenderShader = renderShader;
     } catch (e) {
       debugPrint('ShaderMorph: Failed to load shader.');
     }
@@ -139,6 +151,8 @@ class _ShaderMorphState extends State<ShaderMorph>
                 painter: _InternalMorphPainter(
                   shader: _program!.fragmentShader(),
                   v2ShadowShader: _v2ShadowShader,
+                  v2RenderShader: _v2RenderShader,
+                  useV2Render: _enableV2SinglePageRender,
                   snapshot: _snapshot!,
                   time: _controller.value * 6.28,
                   progress: _controller.value,
@@ -219,6 +233,8 @@ class _ShaderMorphState extends State<ShaderMorph>
 class _InternalMorphPainter extends CustomPainter {
   final ui.FragmentShader shader;
   final ui.FragmentShader? v2ShadowShader;
+  final ui.FragmentShader? v2RenderShader;
+  final bool useV2Render;
   final MorphPairSnapshot snapshot;
   final double time;
   final double progress;
@@ -226,6 +242,8 @@ class _InternalMorphPainter extends CustomPainter {
   _InternalMorphPainter({
     required this.shader,
     required this.v2ShadowShader,
+    required this.v2RenderShader,
+    required this.useV2Render,
     required this.snapshot,
     required this.time,
     required this.progress,
@@ -233,17 +251,26 @@ class _InternalMorphPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final metadata = MorphCoordinator.buildSinglePairMetadataV2(
+      logicalViewport: size,
+      sourceRect: snapshot.source,
+      targetRect: snapshot.destination,
+      progress: progress,
+    );
+
     if (v2ShadowShader != null) {
-      final metadata = MorphCoordinator.buildSinglePairMetadataV2(
-        logicalViewport: size,
-        sourceRect: snapshot.source,
-        targetRect: snapshot.destination,
-        progress: progress,
-      );
       MorphCoordinator.setUniformsV2Packed(
         shader: v2ShadowShader!,
         metadata: metadata,
       );
+    }
+    if (useV2Render && v2RenderShader != null) {
+      MorphCoordinator.setUniformsV2Packed(
+        shader: v2RenderShader!,
+        metadata: metadata,
+      );
+      canvas.drawRect(Offset.zero & size, Paint()..shader = v2RenderShader);
+      return;
     }
 
     MorphCoordinator.setUniforms(

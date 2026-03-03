@@ -14,6 +14,10 @@ const bool _enableV2ShadowBinding = bool.fromEnvironment(
   'SHADERMORPH_V2_SHADOW_BIND',
   defaultValue: false,
 );
+const bool _enableV2CrossRouteRender = bool.fromEnvironment(
+  'SHADERMORPH_V2_RENDER_CROSS_ROUTE',
+  defaultValue: false,
+);
 
 enum CrossRouteMorphState {
   idle,
@@ -198,6 +202,7 @@ class CrossRouteMorphController extends ChangeNotifier {
   CrossRouteMorphState _state = CrossRouteMorphState.idle;
   ui.FragmentProgram? _program;
   ui.FragmentShader? _v2ShadowShader;
+  ui.FragmentShader? _v2RenderShader;
   OverlayEntry? _overlayEntry;
   Ticker? _ticker;
   _CrossRouteVisualState? _visualState;
@@ -509,6 +514,8 @@ class CrossRouteMorphController extends ChangeNotifier {
                 painter: _CrossRouteMorphPainter(
                   shader: program.fragmentShader(),
                   v2ShadowShader: _v2ShadowShader,
+                  v2RenderShader: _v2RenderShader,
+                  useV2Render: _enableV2CrossRouteRender,
                   source: state.source,
                   destination: state.destination,
                   progress: state.progress,
@@ -622,11 +629,18 @@ class CrossRouteMorphController extends ChangeNotifier {
       _program = await ui.FragmentProgram.fromAsset(
         'packages/shadermorph_flutter/shaders/shader_engine.frag',
       );
-      if (_enableV2ShadowBinding && _v2ShadowShader == null) {
+      if ((_enableV2ShadowBinding || _enableV2CrossRouteRender) &&
+          _v2ShadowShader == null &&
+          _v2RenderShader == null) {
         final v2Program = await ui.FragmentProgram.fromAsset(
           'packages/shadermorph_flutter/shaders/shader_engine_v2.frag',
         );
-        _v2ShadowShader = v2Program.fragmentShader();
+        if (_enableV2ShadowBinding) {
+          _v2ShadowShader = v2Program.fragmentShader();
+        }
+        if (_enableV2CrossRouteRender) {
+          _v2RenderShader = v2Program.fragmentShader();
+        }
       }
       return _program;
     } catch (_) {
@@ -705,6 +719,8 @@ class _CrossRouteMorphPopHandlerState extends State<CrossRouteMorphPopHandler> {
 class _CrossRouteMorphPainter extends CustomPainter {
   final ui.FragmentShader shader;
   final ui.FragmentShader? v2ShadowShader;
+  final ui.FragmentShader? v2RenderShader;
+  final bool useV2Render;
   final MorphSnapshot source;
   final MorphSnapshot destination;
   final double progress;
@@ -713,6 +729,8 @@ class _CrossRouteMorphPainter extends CustomPainter {
   _CrossRouteMorphPainter({
     required this.shader,
     required this.v2ShadowShader,
+    required this.v2RenderShader,
+    required this.useV2Render,
     required this.source,
     required this.destination,
     required this.progress,
@@ -721,17 +739,26 @@ class _CrossRouteMorphPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final metadata = MorphCoordinator.buildSinglePairMetadataV2(
+      logicalViewport: size,
+      sourceRect: source,
+      targetRect: destination,
+      progress: progress,
+    );
+
     if (v2ShadowShader != null) {
-      final metadata = MorphCoordinator.buildSinglePairMetadataV2(
-        logicalViewport: size,
-        sourceRect: source,
-        targetRect: destination,
-        progress: progress,
-      );
       MorphCoordinator.setUniformsV2Packed(
         shader: v2ShadowShader!,
         metadata: metadata,
       );
+    }
+    if (useV2Render && v2RenderShader != null) {
+      MorphCoordinator.setUniformsV2Packed(
+        shader: v2RenderShader!,
+        metadata: metadata,
+      );
+      canvas.drawRect(Offset.zero & size, Paint()..shader = v2RenderShader);
+      return;
     }
 
     MorphCoordinator.setUniforms(
