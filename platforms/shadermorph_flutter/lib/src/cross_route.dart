@@ -10,6 +10,7 @@ import 'controller.dart';
 import 'models.dart';
 import 'runtime_config.dart';
 import 'tracker.dart';
+import 'transition_config.dart';
 
 enum CrossRouteMorphState {
   idle,
@@ -188,6 +189,7 @@ class CrossRouteMorphSessionStore {
 
 class CrossRouteMorphController extends ChangeNotifier {
   final Duration duration;
+  final MorphTransitionConfig transitionConfig;
   final MorphTagRegistry _registry;
   final CrossRouteMorphSessionStore _session;
 
@@ -203,6 +205,7 @@ class CrossRouteMorphController extends ChangeNotifier {
 
   CrossRouteMorphController({
     this.duration = const Duration(milliseconds: 800),
+    this.transitionConfig = const MorphTransitionConfig(),
     MorphTagRegistry? registry,
     CrossRouteMorphSessionStore? session,
   }) : _registry = registry ?? MorphTagRegistry.instance,
@@ -511,6 +514,7 @@ class CrossRouteMorphController extends ChangeNotifier {
                   v2ShadowShader: _v2ShadowShader,
                   v2RenderShader: _v2RenderShader,
                   useV2Render: MorphRuntimeConfig.current.useV2CrossRouteRender,
+                  transitionConfig: transitionConfig,
                   source: state.source,
                   destination: state.destination,
                   progress: state.progress,
@@ -722,6 +726,7 @@ class _CrossRouteMorphPainter extends CustomPainter {
   final ui.FragmentShader? v2ShadowShader;
   final ui.FragmentShader? v2RenderShader;
   final bool useV2Render;
+  final MorphTransitionConfig transitionConfig;
   final MorphSnapshot source;
   final MorphSnapshot destination;
   final double progress;
@@ -733,6 +738,7 @@ class _CrossRouteMorphPainter extends CustomPainter {
     required this.v2ShadowShader,
     required this.v2RenderShader,
     required this.useV2Render,
+    required this.transitionConfig,
     required this.source,
     required this.destination,
     required this.progress,
@@ -741,11 +747,13 @@ class _CrossRouteMorphPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final shapedProgress = transitionConfig.transformProgress(progress);
     final metadata = MorphCoordinator.buildSinglePairMetadataV2(
       logicalViewport: size,
       sourceRect: source,
       targetRect: destination,
-      progress: progress,
+      progress: shapedProgress,
+      morphStyle: transitionConfig.shaderStyleIndex,
       // RuntimeEffect fragment coordinates are logical-canvas space.
       usePhysicalResolution: false,
     );
@@ -776,8 +784,8 @@ class _CrossRouteMorphPainter extends CustomPainter {
       viewport: size,
       sourceRect: source,
       targetRect: destination,
-      time: progress * 6.28,
-      progress: progress,
+      time: shapedProgress * 6.28,
+      progress: shapedProgress,
     );
     canvas.drawRect(Offset.zero & size, Paint()..shader = fallbackShader);
   }

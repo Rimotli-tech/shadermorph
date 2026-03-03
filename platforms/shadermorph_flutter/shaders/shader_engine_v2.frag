@@ -19,6 +19,33 @@ bool isInsideRect(vec2 uv, vec4 rect) {
       uv.y <= rect.y + rect.w;
 }
 
+float mixFactorByStyle(float t, int style) {
+  if (style == 1) {
+    // Soft: smoother blend ramp.
+    return t * t * (3.0 - (2.0 * t));
+  }
+  if (style == 2) {
+    // Ripple: slower start, faster finish.
+    return pow(t, 0.7);
+  }
+  // Classic.
+  return t;
+}
+
+vec2 warpLocalUvByStyle(vec2 localUv, float t, int style) {
+  if (style == 2) {
+    // Ripple style: radial wave around center.
+    vec2 center = vec2(0.5, 0.5);
+    vec2 d = localUv - center;
+    float dist = length(d);
+    float amp = 0.03 * (1.0 - t);
+    float wave = sin((dist * 32.0) - (t * 18.0));
+    vec2 safeDir = dist > 0.00001 ? (d / dist) : vec2(0.0);
+    return localUv + (safeDir * wave * amp);
+  }
+  return localUv;
+}
+
 vec4 samplePairColor(vec2 screenUv, vec4 sourceRect, vec4 targetRect) {
   vec4 movedRect = vec4(
     mix(sourceRect.xy, targetRect.xy, u_progress),
@@ -35,12 +62,15 @@ vec4 samplePairColor(vec2 screenUv, vec4 sourceRect, vec4 targetRect) {
     (screenUv.x - movedRect.x) / safeW,
     (screenUv.y - movedRect.y) / safeH
   );
+  int style = int(u_morphStyle + 0.5);
+  localUv = warpLocalUvByStyle(localUv, u_progress, style);
   localUv = clamp(localUv, vec2(0.0), vec2(1.0));
   localUv.y = 1.0 - localUv.y;
 
   vec4 sourceColor = texture(uTexture, localUv);
   vec4 targetColor = texture(uTargetTexture, localUv);
-  return mix(sourceColor, targetColor, u_progress);
+  float t = mixFactorByStyle(clamp(u_progress, 0.0, 1.0), style);
+  return mix(sourceColor, targetColor, t);
 }
 
 void main() {

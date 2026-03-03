@@ -178,6 +178,10 @@ class _MorphDemoPageState extends State<MorphDemoPage> with RouteAware {
               ShaderMorph(
                 controller: _controller,
                 duration: const Duration(milliseconds: 600),
+                transitionConfig: const MorphTransitionConfig(
+                  interpolation: MorphInterpolation.easeInOut,
+                  shaderStyle: MorphShaderStyle.soft,
+                ),
                 destination: _buildMorphCard_2(),
                 source: _buildMorphCard(),
               ),
@@ -215,6 +219,10 @@ class _CrossRouteSourcePageState extends State<CrossRouteSourcePage> {
   static const String _tagId = 'cross_route_card';
   final CrossRouteMorphController _controller = CrossRouteMorphController(
     duration: const Duration(milliseconds: 1800),
+    transitionConfig: const MorphTransitionConfig(
+      interpolation: MorphInterpolation.smoothStep,
+      shaderStyle: MorphShaderStyle.soft,
+    ),
   );
 
   Widget _buildMorphCard() {

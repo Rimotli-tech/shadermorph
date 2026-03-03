@@ -6,12 +6,14 @@ import '../tracker.dart';
 import '../coordinator.dart';
 import '../controller.dart';
 import '../runtime_config.dart';
+import '../transition_config.dart';
 
 class ShaderMorph extends StatefulWidget {
   final Widget source;
   final Widget destination;
   final Duration duration;
   final ShaderMorphController controller;
+  final MorphTransitionConfig transitionConfig;
 
   const ShaderMorph({
     super.key,
@@ -19,6 +21,7 @@ class ShaderMorph extends StatefulWidget {
     required this.destination,
     required this.controller,
     this.duration = const Duration(milliseconds: 800),
+    this.transitionConfig = const MorphTransitionConfig(),
   });
 
   @override
@@ -159,6 +162,7 @@ class _ShaderMorphState extends State<ShaderMorph>
                   v2ShadowShader: _v2ShadowShader,
                   v2RenderShader: _v2RenderShader,
                   useV2Render: config.useV2SinglePageRender,
+                  transitionConfig: widget.transitionConfig,
                   snapshot: _snapshot!,
                   time: _controller.value * 6.28,
                   progress: _controller.value,
@@ -242,6 +246,7 @@ class _InternalMorphPainter extends CustomPainter {
   final ui.FragmentShader? v2ShadowShader;
   final ui.FragmentShader? v2RenderShader;
   final bool useV2Render;
+  final MorphTransitionConfig transitionConfig;
   final MorphPairSnapshot snapshot;
   final double time;
   final double progress;
@@ -252,6 +257,7 @@ class _InternalMorphPainter extends CustomPainter {
     required this.v2ShadowShader,
     required this.v2RenderShader,
     required this.useV2Render,
+    required this.transitionConfig,
     required this.snapshot,
     required this.time,
     required this.progress,
@@ -259,11 +265,13 @@ class _InternalMorphPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final shapedProgress = transitionConfig.transformProgress(progress);
     final metadata = MorphCoordinator.buildSinglePairMetadataV2(
       logicalViewport: size,
       sourceRect: snapshot.source,
       targetRect: snapshot.destination,
-      progress: progress,
+      progress: shapedProgress,
+      morphStyle: transitionConfig.shaderStyleIndex,
       // RuntimeEffect fragment coordinates are logical-canvas space.
       usePhysicalResolution: false,
     );
@@ -295,7 +303,7 @@ class _InternalMorphPainter extends CustomPainter {
       sourceRect: snapshot.source,
       targetRect: snapshot.destination,
       time: time,
-      progress: progress,
+      progress: shapedProgress,
     );
     canvas.drawRect(Offset.zero & size, Paint()..shader = fallbackShader);
   }

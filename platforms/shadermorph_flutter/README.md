@@ -18,6 +18,10 @@ ShaderMorph(
   source: const Text('Source'),
   destination: const Text('Destination'),
   duration: const Duration(milliseconds: 800),
+  transitionConfig: const MorphTransitionConfig(
+    interpolation: MorphInterpolation.easeInOut,
+    shaderStyle: MorphShaderStyle.soft,
+  ),
 );
 
 // External trigger
@@ -28,7 +32,12 @@ await controller.reverse();
 ## Cross-Route Usage
 
 ```dart
-final crossController = CrossRouteMorphController();
+final crossController = CrossRouteMorphController(
+  transitionConfig: const MorphTransitionConfig(
+    interpolation: MorphInterpolation.smoothStep,
+    shaderStyle: MorphShaderStyle.ripple,
+  ),
+);
 
 // Source page
 MorphTag(id: 'card_tag', child: sourceCard);
@@ -45,6 +54,21 @@ await crossController.startToRoute(
 MorphTag(id: 'card_tag', child: destinationCard3);
 await crossController.playForward(context: context, tagId: 'card_tag');
 ```
+
+### Transition Customization
+
+Use `MorphTransitionConfig` to control interpolation and shader style:
+
+- Interpolation:
+  - `MorphInterpolation.linear`
+  - `MorphInterpolation.easeIn`
+  - `MorphInterpolation.easeOut`
+  - `MorphInterpolation.easeInOut`
+  - `MorphInterpolation.smoothStep`
+- Shader styles:
+  - `MorphShaderStyle.classic`
+  - `MorphShaderStyle.soft`
+  - `MorphShaderStyle.ripple`
 
 ## Pop Interception
 
