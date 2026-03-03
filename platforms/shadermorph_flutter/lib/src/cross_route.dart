@@ -193,6 +193,7 @@ class CrossRouteMorphController extends ChangeNotifier {
 
     _session.setSource(id: tagId, snapshot: sourceSnapshot);
     final expectedToken = _session.token;
+    // Hide source endpoint before route push to avoid double-draw on source page.
     _registry.setHidden(tagId, true);
     _setState(CrossRouteMorphState.capturedSource);
 
@@ -206,6 +207,7 @@ class CrossRouteMorphController extends ChangeNotifier {
     );
 
     unawaited(navigator.push(route));
+    _registry.setHidden(tagId, false);
 
     final destinationSnapshot = await _waitForSnapshotById(
       tagId,
@@ -218,6 +220,9 @@ class CrossRouteMorphController extends ChangeNotifier {
       return false;
     }
 
+    // Destination snapshot must come from a visible widget to preserve its
+    // real alpha/shape (e.g. rounded corners). Re-hide during overlay playback.
+    _registry.setHidden(tagId, true);
     _setState(CrossRouteMorphState.animatingForward);
     _visualState?.setDestination(destinationSnapshot);
 
