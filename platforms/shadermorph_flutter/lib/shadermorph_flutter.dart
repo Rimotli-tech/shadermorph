@@ -2,6 +2,7 @@
 export 'src/models.dart';
 export 'src/controller.dart';
 export 'src/navigation.dart';
+export 'src/cross_route.dart';
 
 // Export the primary widget wrapper
 export 'src/widgets/morph_host.dart';

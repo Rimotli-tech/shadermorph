@@ -68,4 +68,63 @@ void main() {
     );
     expect(gestureInMorph, findsNothing);
   });
+
+  testWidgets('MorphTag registers and unregisters tag keys', (
+    WidgetTester tester,
+  ) async {
+    MorphTagRegistry.instance.clearForTesting();
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: MorphTag(id: 'tag_a', child: Text('A')),
+        ),
+      ),
+    );
+
+    expect(MorphTagRegistry.instance.keyFor('tag_a'), isNotNull);
+
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: SizedBox())),
+    );
+
+    expect(MorphTagRegistry.instance.keyFor('tag_a'), isNull);
+  });
+
+  testWidgets(
+    'CrossRouteMorphController startToRoute returns false without tag',
+    (WidgetTester tester) async {
+      final controller = CrossRouteMorphController();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: ElevatedButton(
+                onPressed: () async {
+                  await controller.startToRoute(
+                    context: context,
+                    tagId: 'missing_tag',
+                    route: MaterialPageRoute<void>(
+                      builder: (_) => const Scaffold(body: Text('dest')),
+                    ),
+                  );
+                },
+                child: const Text('go'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final started = await controller.startToRoute(
+        context: tester.element(find.text('go')),
+        tagId: 'missing_tag',
+        route: MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('dest')),
+        ),
+      );
+      expect(started, isFalse);
+    },
+  );
 }

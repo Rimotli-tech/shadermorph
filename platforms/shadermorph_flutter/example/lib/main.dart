@@ -28,13 +28,29 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
-        child: ElevatedButton(
-          onPressed: () {
-            Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => const MorphDemoPage()));
-          },
-          child: const Text('Open Morph Demo'),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const MorphDemoPage()),
+                );
+              },
+              child: const Text('Open Single-Page Morph Demo'),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const CrossRouteSourcePage(),
+                  ),
+                );
+              },
+              child: const Text('Open Cross-Route Morph Demo'),
+            ),
+          ],
         ),
       ),
     );
@@ -187,6 +203,166 @@ class _MorphDemoPageState extends State<MorphDemoPage> with RouteAware {
                     child: const Text('Reverse'),
                   ),
                 ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class CrossRouteSourcePage extends StatefulWidget {
+  const CrossRouteSourcePage({super.key});
+
+  @override
+  State<CrossRouteSourcePage> createState() => _CrossRouteSourcePageState();
+}
+
+class _CrossRouteSourcePageState extends State<CrossRouteSourcePage> {
+  static const String _tagId = 'cross_route_card';
+  final CrossRouteMorphController _controller = CrossRouteMorphController(
+    duration: const Duration(milliseconds: 1800),
+  );
+
+  Widget _buildMorphCard() {
+    return Container(
+      width: 250,
+      height: 150,
+      decoration: BoxDecoration(
+        color: Colors.indigo,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black45,
+            blurRadius: 10,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: const Center(
+        child: Text(
+          'Cross-Route Source',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _goToDestination() async {
+    await _controller.startToRoute(
+      context: context,
+      tagId: _tagId,
+      route: MaterialPageRoute<void>(
+        builder: (_) =>
+            CrossRouteDestinationPage(controller: _controller, tagId: _tagId),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Cross-Route Source')),
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            MorphTag(id: _tagId, child: _buildMorphCard()),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _goToDestination,
+              child: const Text('Go To Destination (Auto Morph)'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class CrossRouteDestinationPage extends StatelessWidget {
+  final CrossRouteMorphController controller;
+  final String tagId;
+
+  const CrossRouteDestinationPage({
+    super.key,
+    required this.controller,
+    required this.tagId,
+  });
+
+  Widget _buildMorphCard_3() {
+    return Container(
+      width: 200,
+      height: 120,
+      decoration: BoxDecoration(
+        color: const Color.fromARGB(255, 9, 161, 112),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black45,
+            blurRadius: 10,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: const Center(
+        child: Text(
+          'Destination 3',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _reverseThenPop(BuildContext context) async {
+    final ok = await controller.playReverseBeforePop(
+      context: context,
+      tagId: tagId,
+    );
+    if (!ok && context.mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CrossRouteMorphPopHandler(
+      controller: controller,
+      tagId: tagId,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Cross-Route Destination'),
+          leading: IconButton(
+            onPressed: () => _reverseThenPop(context),
+            icon: const Icon(Icons.arrow_back),
+          ),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              MorphTag(id: tagId, child: _buildMorphCard_3()),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => _reverseThenPop(context),
+                child: const Text('Reverse + Pop'),
               ),
             ],
           ),
