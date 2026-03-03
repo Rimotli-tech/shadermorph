@@ -15,6 +15,31 @@ class _FakePlaybackDelegate implements ShaderMorphPlaybackDelegate {
   }
 }
 
+class _PopTestPage extends StatelessWidget {
+  final ShaderMorphController controller;
+  final BackPopMode mode;
+
+  const _PopTestPage({required this.controller, required this.mode});
+
+  @override
+  Widget build(BuildContext context) {
+    return ShaderMorphPopHandler(
+      controller: controller,
+      backPopMode: mode,
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: const Icon(Icons.arrow_back),
+          ),
+          title: const Text('Pop Test'),
+        ),
+        body: const SizedBox.shrink(),
+      ),
+    );
+  }
+}
+
 void main() {
   test('controller returns false when detached', () async {
     final controller = ShaderMorphController();
@@ -211,4 +236,84 @@ void main() {
       expect(started, isFalse);
     },
   );
+
+  testWidgets('single-page reverseThenPop can fallback-pop without freeze', (
+    WidgetTester tester,
+  ) async {
+    final controller = ShaderMorphController()
+      ..debugSetState(MorphPlaybackState.idleDestination);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).push<void>(
+                    MaterialPageRoute<void>(
+                      builder: (_) => _PopTestPage(
+                        controller: controller,
+                        mode: BackPopMode.reverseThenPop,
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Pop Test'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pop Test'), findsNothing);
+  });
+
+  testWidgets('single-page immediatePopReset pops without freeze', (
+    WidgetTester tester,
+  ) async {
+    final controller = ShaderMorphController()
+      ..debugSetState(MorphPlaybackState.idleDestination);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).push<void>(
+                    MaterialPageRoute<void>(
+                      builder: (_) => _PopTestPage(
+                        controller: controller,
+                        mode: BackPopMode.immediatePopReset,
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Pop Test'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pop Test'), findsNothing);
+  });
 }

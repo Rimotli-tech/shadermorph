@@ -35,7 +35,10 @@ MorphTag(id: 'card_tag', child: sourceCard);
 await crossController.startToRoute(
   context: context,
   tagId: 'card_tag',
-  route: MaterialPageRoute<void>(builder: (_) => DestinationPage()),
+  route: buildMorphRoute(
+    page: DestinationPage(),
+    suppressTransition: true,
+  ),
 );
 
 // Destination page
@@ -50,13 +53,15 @@ Use `ShaderMorphPopHandler` to reverse before page pop.
 ```dart
 ShaderMorphPopHandler(
   controller: controller,
+  backPopMode: BackPopMode.reverseThenPop, // default
   child: Scaffold(
     body: ...,
   ),
 )
 ```
 
-The pop handler attempts `reverse()` when the morph is at destination state,
-waits for completion, and then allows pop.
+`backPopMode` options:
+- `BackPopMode.reverseThenPop`: reverse first, then pop.
+- `BackPopMode.immediatePopReset`: pop immediately and reset to source state.
 
 For cross-route mode, use `CrossRouteMorphPopHandler`.

@@ -142,18 +142,9 @@ class _MorphDemoPageState extends State<MorphDemoPage> with RouteAware {
   }
 
   Future<void> _reverseThenPop() async {
-    final navigator = Navigator.of(context);
-    final started = await _controller.reverse();
-    if (!started) {
-      if (mounted) navigator.pop();
-      return;
+    if (mounted) {
+      Navigator.of(context).maybePop();
     }
-
-    await _controller.waitForState(
-      MorphPlaybackState.idleSource,
-      timeout: const Duration(milliseconds: 1500),
-    );
-    if (mounted) navigator.pop();
   }
 
   @override
@@ -170,6 +161,7 @@ class _MorphDemoPageState extends State<MorphDemoPage> with RouteAware {
   Widget build(BuildContext context) {
     return ShaderMorphPopHandler(
       controller: _controller,
+      backPopMode: BackPopMode.immediatePopReset,
       child: Scaffold(
         appBar: AppBar(
           leading: IconButton(
@@ -258,9 +250,9 @@ class _CrossRouteSourcePageState extends State<CrossRouteSourcePage> {
     await _controller.startToRoute(
       context: context,
       tagId: _tagId,
-      route: MaterialPageRoute<void>(
-        builder: (_) =>
-            CrossRouteDestinationPage(controller: _controller, tagId: _tagId),
+      route: buildMorphRoute(
+        suppressTransition: true,
+        page: CrossRouteDestinationPage(controller: _controller, tagId: _tagId),
       ),
     );
   }

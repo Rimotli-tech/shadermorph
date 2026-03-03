@@ -100,6 +100,11 @@ class ShaderMorphController extends ChangeNotifier {
     _setState(state);
   }
 
+  void resetToSource() {
+    if (_state == MorphPlaybackState.disposed) return;
+    _setState(MorphPlaybackState.idleSource);
+  }
+
   void _setState(MorphPlaybackState state) {
     if (_state == state) return;
     _state = state;
