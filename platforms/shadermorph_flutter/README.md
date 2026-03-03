@@ -66,21 +66,29 @@ ShaderMorphPopHandler(
 
 For cross-route mode, use `CrossRouteMorphPopHandler`.
 
-## Protocol-V2 Controlled Switches
+## Protocol-V2 Runtime
 
-Segmented V2 rollout uses compile-time flags (all default `false`):
+Protocol-V2 is now the default render path for both single-page and cross-route.
 
-- `SHADERMORPH_V2_SHADOW_BIND=true`
-  - Binds V2 uniforms in shadow mode while keeping V1 render path active.
-- `SHADERMORPH_V2_RENDER_SINGLE_PAGE=true`
-  - Switches single-page `ShaderMorph` overlay rendering to V2 shader.
-- `SHADERMORPH_V2_RENDER_CROSS_ROUTE=true`
-  - Switches cross-route overlay rendering to V2 shader.
+### Emergency fallback (temporary compatibility window)
 
-Example:
+Use this only if you need to force legacy V1 rendering:
+
+```bash
+flutter run --dart-define=SHADERMORPH_FORCE_V1_RENDER=true
+```
+
+Optional debug mode while V1 fallback is active:
 
 ```bash
 flutter run \
-  --dart-define=SHADERMORPH_V2_SHADOW_BIND=true \
-  --dart-define=SHADERMORPH_V2_RENDER_SINGLE_PAGE=true
+  --dart-define=SHADERMORPH_FORCE_V1_RENDER=true \
+  --dart-define=SHADERMORPH_V2_SHADOW_BIND=true
 ```
+
+### Deprecated flags (one-cycle compatibility)
+
+- `SHADERMORPH_V2_RENDER_SINGLE_PAGE`
+- `SHADERMORPH_V2_RENDER_CROSS_ROUTE`
+
+These are deprecated and mapped for compatibility. Prefer `SHADERMORPH_FORCE_V1_RENDER`.

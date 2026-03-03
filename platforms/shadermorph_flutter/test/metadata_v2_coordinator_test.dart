@@ -145,6 +145,29 @@ void main() {
     expect(source, const MorphRectNormV2(x: 0.1, y: 0.1, w: 0.3, h: 0.2));
     expect(target, const MorphRectNormV2(x: 0.2, y: 0.2, w: 0.1, h: 0.1));
   });
+
+  test('buildSinglePairMetadataV2 can use logical resolution for shader space', () {
+    final metadata = MorphCoordinator.buildSinglePairMetadataV2(
+      logicalViewport: const Size(100, 200),
+      sourceRect: MorphSnapshot(
+        image: _tinyImage(),
+        rect: const Rect.fromLTWH(10, 20, 30, 40),
+        pixelRatio: 2.0,
+      ),
+      targetRect: MorphSnapshot(
+        image: _tinyImage(),
+        rect: const Rect.fromLTWH(20, 40, 10, 20),
+        pixelRatio: 2.0,
+      ),
+      progress: 0.6,
+      morphStyle: 7,
+      usePhysicalResolution: false,
+    );
+
+    expect(metadata.resolutionPx, const Size(100, 200));
+    expect(metadata.sourceRectsFixed8.first, const MorphRectNormV2(x: 0.1, y: 0.1, w: 0.3, h: 0.2));
+    expect(metadata.targetRectsFixed8.first, const MorphRectNormV2(x: 0.2, y: 0.2, w: 0.1, h: 0.1));
+  });
 }
 
 // Tests only need a valid ui.Image instance; a 1x1 image is sufficient.

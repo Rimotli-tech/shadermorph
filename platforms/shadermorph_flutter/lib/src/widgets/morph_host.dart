@@ -5,15 +5,7 @@ import '../models.dart';
 import '../tracker.dart';
 import '../coordinator.dart';
 import '../controller.dart';
-
-const bool _enableV2ShadowBinding = bool.fromEnvironment(
-  'SHADERMORPH_V2_SHADOW_BIND',
-  defaultValue: false,
-);
-const bool _enableV2SinglePageRender = bool.fromEnvironment(
-  'SHADERMORPH_V2_RENDER_SINGLE_PAGE',
-  defaultValue: false,
-);
+import '../runtime_config.dart';
 
 class ShaderMorph extends StatefulWidget {
   final Widget source;
@@ -42,6 +34,8 @@ class _ShaderMorphState extends State<ShaderMorph>
 
   MorphPairSnapshot? _snapshot;
   ui.FragmentProgram? _program;
+  // Deprecated emergency fallback path. Remove after V2 stabilization window.
+  ui.FragmentProgram? _v1Program;
   ui.FragmentShader? _v2ShadowShader;
   ui.FragmentShader? _v2RenderShader;
   MorphDirection _activeDirection = MorphDirection.forward;
@@ -66,23 +60,32 @@ class _ShaderMorphState extends State<ShaderMorph>
 
   Future<void> _loadShader() async {
     try {
-      final prog = await ui.FragmentProgram.fromAsset(
+      final v1Prog = await ui.FragmentProgram.fromAsset(
         'packages/shadermorph_flutter/shaders/shader_engine.frag',
       );
-      ui.FragmentShader? shadowShader;
-      ui.FragmentShader? renderShader;
-      if (_enableV2ShadowBinding || _enableV2SinglePageRender) {
-        final shadowProgram = await ui.FragmentProgram.fromAsset(
+      ui.FragmentProgram? v2Prog;
+      try {
+        v2Prog = await ui.FragmentProgram.fromAsset(
           'packages/shadermorph_flutter/shaders/shader_engine_v2.frag',
         );
-        if (_enableV2ShadowBinding) {
-          shadowShader = shadowProgram.fragmentShader();
-        }
-        if (_enableV2SinglePageRender) {
-          renderShader = shadowProgram.fragmentShader();
-        }
+      } catch (_) {
+        // Keep rendering available via V1 fallback if V2 cannot load.
       }
-      if (mounted) setState(() => _program = prog);
+
+      final config = MorphRuntimeConfig.current;
+      maybeLogRuntimeDeprecations(config);
+
+      ui.FragmentShader? shadowShader;
+      if (config.enableV2ShadowBindWhenV1 && v2Prog != null) {
+        shadowShader = v2Prog.fragmentShader();
+      }
+      final renderShader = config.useV2SinglePageRender && v2Prog != null
+          ? v2Prog.fragmentShader()
+          : null;
+
+      final activeProgram = v2Prog ?? v1Prog;
+      if (mounted) setState(() => _program = activeProgram);
+      _v1Program = v1Prog;
       _v2ShadowShader = shadowShader;
       _v2RenderShader = renderShader;
     } catch (e) {
@@ -140,6 +143,8 @@ class _ShaderMorphState extends State<ShaderMorph>
     if (_snapshot == null || _program == null) return;
 
     final overlayState = Overlay.of(context);
+    final config = MorphRuntimeConfig.current;
+    final v1Shader = _v1Program?.fragmentShader();
 
     _overlayEntry = OverlayEntry(
       builder: (context) => Positioned.fill(
@@ -150,9 +155,10 @@ class _ShaderMorphState extends State<ShaderMorph>
               return CustomPaint(
                 painter: _InternalMorphPainter(
                   shader: _program!.fragmentShader(),
+                  v1Shader: v1Shader,
                   v2ShadowShader: _v2ShadowShader,
                   v2RenderShader: _v2RenderShader,
-                  useV2Render: _enableV2SinglePageRender,
+                  useV2Render: config.useV2SinglePageRender,
                   snapshot: _snapshot!,
                   time: _controller.value * 6.28,
                   progress: _controller.value,
@@ -232,6 +238,7 @@ class _ShaderMorphState extends State<ShaderMorph>
 
 class _InternalMorphPainter extends CustomPainter {
   final ui.FragmentShader shader;
+  final ui.FragmentShader? v1Shader;
   final ui.FragmentShader? v2ShadowShader;
   final ui.FragmentShader? v2RenderShader;
   final bool useV2Render;
@@ -241,6 +248,7 @@ class _InternalMorphPainter extends CustomPainter {
 
   _InternalMorphPainter({
     required this.shader,
+    required this.v1Shader,
     required this.v2ShadowShader,
     required this.v2RenderShader,
     required this.useV2Render,
@@ -256,6 +264,8 @@ class _InternalMorphPainter extends CustomPainter {
       sourceRect: snapshot.source,
       targetRect: snapshot.destination,
       progress: progress,
+      // RuntimeEffect fragment coordinates are logical-canvas space.
+      usePhysicalResolution: false,
     );
 
     if (v2ShadowShader != null) {
@@ -263,25 +273,31 @@ class _InternalMorphPainter extends CustomPainter {
         shader: v2ShadowShader!,
         metadata: metadata,
       );
+      v2ShadowShader!.setImageSampler(0, snapshot.source.image);
+      v2ShadowShader!.setImageSampler(1, snapshot.destination.image);
     }
     if (useV2Render && v2RenderShader != null) {
       MorphCoordinator.setUniformsV2Packed(
         shader: v2RenderShader!,
         metadata: metadata,
       );
+      v2RenderShader!.setImageSampler(0, snapshot.source.image);
+      v2RenderShader!.setImageSampler(1, snapshot.destination.image);
       canvas.drawRect(Offset.zero & size, Paint()..shader = v2RenderShader);
       return;
     }
 
+    // Deprecated emergency fallback path. Remove after V2 stabilization window.
+    final fallbackShader = v1Shader ?? shader;
     MorphCoordinator.setUniforms(
-      shader: shader,
+      shader: fallbackShader,
       viewport: size,
       sourceRect: snapshot.source,
       targetRect: snapshot.destination,
       time: time,
       progress: progress,
     );
-    canvas.drawRect(Offset.zero & size, Paint()..shader = shader);
+    canvas.drawRect(Offset.zero & size, Paint()..shader = fallbackShader);
   }
 
   @override

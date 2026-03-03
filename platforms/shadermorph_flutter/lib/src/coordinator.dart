@@ -93,6 +93,7 @@ class MorphCoordinator {
     required double progress,
     int morphStyle = 0,
     bool clampRectsToUnit = false,
+    bool usePhysicalResolution = true,
   }) {
     final dpr = sourceRect.pixelRatio;
     final sourceNorm = MorphTracker.normalizeLogicalRectToV2(
@@ -108,11 +109,15 @@ class MorphCoordinator {
       clampToUnit: clampRectsToUnit,
     );
 
+    final resolution = usePhysicalResolution
+        ? MorphTracker.logicalSizeToPhysicalSize(
+            logicalSize: logicalViewport,
+            devicePixelRatio: dpr,
+          )
+        : logicalViewport;
+
     return MorphFrameMetadataV2(
-      resolutionPx: MorphTracker.logicalSizeToPhysicalSize(
-        logicalSize: logicalViewport,
-        devicePixelRatio: dpr,
-      ),
+      resolutionPx: resolution,
       progress: progress,
       morphStyle: morphStyle,
       pairs: <MorphPairRectsV2>[
