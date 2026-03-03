@@ -332,7 +332,7 @@ class CrossRouteDestinationPage extends StatelessWidget {
   }
 
   Future<void> _reverseThenPop(BuildContext context) async {
-    final ok = await controller.playReverseBeforePop(
+    final ok = await controller.playReverseDuringPop(
       context: context,
       tagId: tagId,
     );

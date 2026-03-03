@@ -91,6 +91,90 @@ void main() {
     expect(MorphTagRegistry.instance.keyFor('tag_a'), isNull);
   });
 
+  testWidgets('MorphTagRegistry keeps tag active when one duplicate unmounts', (
+    WidgetTester tester,
+  ) async {
+    MorphTagRegistry.instance.clearForTesting();
+    var showSecond = true;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            return Scaffold(
+              body: Column(
+                children: [
+                  const MorphTag(id: 'shared', child: Text('first')),
+                  if (showSecond)
+                    const MorphTag(id: 'shared', child: Text('second')),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        showSecond = false;
+                      });
+                    },
+                    child: const Text('remove'),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+
+    final firstKey = MorphTagRegistry.instance.keyFor('shared');
+    expect(firstKey, isNotNull);
+
+    await tester.tap(find.text('remove'));
+    await tester.pumpAndSettle();
+
+    final remainingKey = MorphTagRegistry.instance.keyFor('shared');
+    expect(remainingKey, isNotNull);
+    expect(remainingKey, isNot(firstKey));
+  });
+
+  testWidgets('unregister does not clear hidden state for sibling duplicate', (
+    WidgetTester tester,
+  ) async {
+    MorphTagRegistry.instance.clearForTesting();
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              MorphTag(id: 'shared_hidden', child: Text('A')),
+              MorphTag(id: 'shared_hidden', child: Text('B')),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final latestKey = MorphTagRegistry.instance.keyFor('shared_hidden');
+    expect(latestKey, isNotNull);
+    final hiddenKey = MorphTagRegistry.instance.keyForExcluding(
+      'shared_hidden',
+      latestKey!,
+    );
+    expect(hiddenKey, isNotNull);
+    MorphTagRegistry.instance.setHiddenForKey(hiddenKey!, hidden: true);
+    await tester.pump();
+    expect(MorphTagRegistry.instance.hiddenTags.value.contains(hiddenKey), isTrue);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: MorphTag(id: 'shared_hidden', child: Text('A')),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(MorphTagRegistry.instance.hiddenTags.value.contains(hiddenKey), isTrue);
+  });
+
   testWidgets(
     'CrossRouteMorphController startToRoute returns false without tag',
     (WidgetTester tester) async {

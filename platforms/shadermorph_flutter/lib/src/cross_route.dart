@@ -55,10 +55,10 @@ class _MorphTagState extends State<MorphTag> {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<Set<String>>(
+    return ValueListenableBuilder<Set<GlobalKey>>(
       valueListenable: MorphTagRegistry.instance.hiddenTags,
       builder: (context, hiddenTags, _) {
-        final hidden = hiddenTags.contains(widget.id);
+        final hidden = hiddenTags.contains(_paintKey);
         return Opacity(
           opacity: hidden ? 0.0 : 1.0,
           child: RepaintBoundary(key: _paintKey, child: widget.child),
@@ -73,28 +73,36 @@ class MorphTagRegistry {
 
   static final MorphTagRegistry instance = MorphTagRegistry._();
 
-  final Map<String, GlobalKey> _tags = <String, GlobalKey>{};
-  final ValueNotifier<Set<String>> hiddenTags = ValueNotifier<Set<String>>(
-    <String>{},
+  final Map<String, List<GlobalKey>> _tags = <String, List<GlobalKey>>{};
+  final ValueNotifier<Set<GlobalKey>> hiddenTags = ValueNotifier<Set<GlobalKey>>(
+    <GlobalKey>{},
   );
 
   void register(String id, GlobalKey key) {
-    _tags[id] = key;
-  }
-
-  void unregister(String id, GlobalKey key) {
-    final current = _tags[id];
-    if (identical(current, key)) {
-      _tags.remove(id);
-      setHidden(id, false);
+    final keys = _tags.putIfAbsent(id, () => <GlobalKey>[]);
+    if (!keys.contains(key)) {
+      keys.add(key);
     }
   }
 
-  GlobalKey? keyFor(String id) => _tags[id];
+  void unregister(String id, GlobalKey key) {
+    final keys = _tags[id];
+    if (keys == null) return;
+    keys.remove(key);
+    if (keys.isEmpty) {
+      _tags.remove(id);
+    }
+  }
+
+  GlobalKey? keyFor(String id) => _latestMountedKey(id);
 
   Future<MorphSnapshot?> captureById(String id) async {
-    final key = _tags[id];
+    final key = keyFor(id);
     if (key == null) return null;
+    return captureByKey(key);
+  }
+
+  Future<MorphSnapshot?> captureByKey(GlobalKey key) async {
     try {
       return await MorphTracker.capture(key);
     } catch (_) {
@@ -102,12 +110,30 @@ class MorphTagRegistry {
     }
   }
 
-  void setHidden(String id, bool hidden) {
-    final updated = Set<String>.from(hiddenTags.value);
+  GlobalKey? keyForExcluding(String id, GlobalKey excludedKey) {
+    final keys = _tags[id];
+    if (keys == null || keys.isEmpty) return null;
+    for (var i = keys.length - 1; i >= 0; i -= 1) {
+      final key = keys[i];
+      if (identical(key, excludedKey)) continue;
+      final mounted = key.currentContext?.findRenderObject() != null;
+      if (mounted) return key;
+    }
+    for (var i = keys.length - 1; i >= 0; i -= 1) {
+      final key = keys[i];
+      if (!identical(key, excludedKey)) {
+        return key;
+      }
+    }
+    return null;
+  }
+
+  void setHiddenForKey(GlobalKey key, {required bool hidden}) {
+    final updated = Set<GlobalKey>.from(hiddenTags.value);
     if (hidden) {
-      updated.add(id);
+      updated.add(key);
     } else {
-      updated.remove(id);
+      updated.remove(key);
     }
     if (!setEquals(updated, hiddenTags.value)) {
       hiddenTags.value = updated;
@@ -117,7 +143,18 @@ class MorphTagRegistry {
   @visibleForTesting
   void clearForTesting() {
     _tags.clear();
-    hiddenTags.value = <String>{};
+    hiddenTags.value = <GlobalKey>{};
+  }
+
+  GlobalKey? _latestMountedKey(String id) {
+    final keys = _tags[id];
+    if (keys == null || keys.isEmpty) return null;
+    for (var i = keys.length - 1; i >= 0; i -= 1) {
+      final key = keys[i];
+      final mounted = key.currentContext?.findRenderObject() != null;
+      if (mounted) return key;
+    }
+    return keys.last;
   }
 }
 
@@ -183,7 +220,9 @@ class CrossRouteMorphController extends ChangeNotifier {
   }) async {
     if (_state == CrossRouteMorphState.disposed || isAnimating) return false;
 
-    final sourceSnapshot = await _registry.captureById(tagId);
+    final sourceKey = _registry.keyFor(tagId);
+    if (sourceKey == null) return false;
+    final sourceSnapshot = await _registry.captureByKey(sourceKey);
     if (sourceSnapshot == null) return false;
     if (!context.mounted) return false;
     final navigator = Navigator.of(context);
@@ -193,51 +232,61 @@ class CrossRouteMorphController extends ChangeNotifier {
 
     _session.setSource(id: tagId, snapshot: sourceSnapshot);
     final expectedToken = _session.token;
-    // Hide source endpoint before route push to avoid double-draw on source page.
-    _registry.setHidden(tagId, true);
-    _setState(CrossRouteMorphState.capturedSource);
+    GlobalKey? destinationKey;
+    try {
+      // Hide source endpoint before route push to avoid double-draw on source page.
+      _registry.setHiddenForKey(sourceKey, hidden: true);
+      _setState(CrossRouteMorphState.capturedSource);
 
-    _showOverlay(
-      overlayState: overlayState,
-      program: program,
-      source: sourceSnapshot,
-      destination: sourceSnapshot,
-      direction: MorphDirection.forward,
-      progress: 0.0,
-    );
+      _showOverlay(
+        overlayState: overlayState,
+        program: program,
+        source: sourceSnapshot,
+        destination: sourceSnapshot,
+        direction: MorphDirection.forward,
+        progress: 0.0,
+      );
 
-    unawaited(navigator.push(route));
-    _registry.setHidden(tagId, false);
+      unawaited(navigator.push(route));
+      destinationKey = await _waitForTargetKey(
+        tagId,
+        excludedKey: sourceKey,
+        timeout: const Duration(seconds: 3),
+      );
+      if (destinationKey == null || _session.token != expectedToken) {
+        _setState(CrossRouteMorphState.idle);
+        return false;
+      }
+      final destinationSnapshot = await _waitForStableSnapshotByKey(
+        destinationKey,
+        timeout: const Duration(seconds: 3),
+      );
+      if (destinationSnapshot == null || _session.token != expectedToken) {
+        _setState(CrossRouteMorphState.idle);
+        return false;
+      }
 
-    final destinationSnapshot = await _waitForSnapshotById(
-      tagId,
-      timeout: const Duration(seconds: 3),
-    );
-    if (destinationSnapshot == null || _session.token != expectedToken) {
-      _registry.setHidden(tagId, false);
+      _registry.setHiddenForKey(destinationKey, hidden: true);
+      _setState(CrossRouteMorphState.animatingForward);
+      _visualState?.setDestination(destinationSnapshot);
+
+      final completed = await _animateOverlay(
+        direction: MorphDirection.forward,
+        expectedToken: expectedToken,
+      );
+      _setState(
+        completed
+            ? CrossRouteMorphState.atDestination
+            : CrossRouteMorphState.idle,
+      );
+      return completed;
+    } finally {
       _removeOverlay();
-      _setState(CrossRouteMorphState.idle);
-      return false;
+      _registry.setHiddenForKey(sourceKey, hidden: false);
+      if (destinationKey != null) {
+        _registry.setHiddenForKey(destinationKey, hidden: false);
+      }
     }
-
-    // Destination snapshot must come from a visible widget to preserve its
-    // real alpha/shape (e.g. rounded corners). Re-hide during overlay playback.
-    _registry.setHidden(tagId, true);
-    _setState(CrossRouteMorphState.animatingForward);
-    _visualState?.setDestination(destinationSnapshot);
-
-    final completed = await _animateOverlay(
-      direction: MorphDirection.forward,
-      expectedToken: expectedToken,
-    );
-    _removeOverlay();
-    _registry.setHidden(tagId, false);
-    _setState(
-      completed
-          ? CrossRouteMorphState.atDestination
-          : CrossRouteMorphState.idle,
-    );
-    return completed;
   }
 
   Future<bool> playForward({
@@ -248,27 +297,31 @@ class CrossRouteMorphController extends ChangeNotifier {
     if (!_session.hasSessionFor(tagId)) return false;
     final source = _session.source;
     if (source == null) return false;
+    final destinationKey = _registry.keyFor(tagId);
+    if (destinationKey == null) return false;
 
-    final destination = await _registry.captureById(tagId);
+    final destination = await _registry.captureByKey(destinationKey);
     if (destination == null) return false;
     if (!context.mounted) return false;
     final overlayState = Overlay.of(context, rootOverlay: true);
 
     _setState(CrossRouteMorphState.animatingForward);
-    _registry.setHidden(tagId, true);
-
-    final ok = await _runOverlayAnimation(
-      overlayState: overlayState,
-      source: source,
-      destination: destination,
-      direction: MorphDirection.forward,
-      expectedToken: _session.token,
-    );
-    _registry.setHidden(tagId, false);
-    _setState(
-      ok ? CrossRouteMorphState.atDestination : CrossRouteMorphState.idle,
-    );
-    return ok;
+    _registry.setHiddenForKey(destinationKey, hidden: true);
+    try {
+      final ok = await _runOverlayAnimation(
+        overlayState: overlayState,
+        source: source,
+        destination: destination,
+        direction: MorphDirection.forward,
+        expectedToken: _session.token,
+      );
+      _setState(
+        ok ? CrossRouteMorphState.atDestination : CrossRouteMorphState.idle,
+      );
+      return ok;
+    } finally {
+      _registry.setHiddenForKey(destinationKey, hidden: false);
+    }
   }
 
   Future<bool> playReverse({
@@ -281,47 +334,111 @@ class CrossRouteMorphController extends ChangeNotifier {
 
     final source = _session.source;
     if (source == null) return false;
-    final currentDestination = await _registry.captureById(tagId);
+    final destinationKey = _registry.keyFor(tagId);
+    if (destinationKey == null) return false;
+    final currentDestination = await _registry.captureByKey(destinationKey);
     if (currentDestination == null) return false;
     if (!context.mounted) return false;
     final overlayState = Overlay.of(context, rootOverlay: true);
 
     _setState(CrossRouteMorphState.animatingReverse);
-    _registry.setHidden(tagId, true);
+    _registry.setHiddenForKey(destinationKey, hidden: true);
+    try {
+      final ok = await _runOverlayAnimation(
+        overlayState: overlayState,
+        source: currentDestination,
+        destination: source,
+        direction: MorphDirection.reverse,
+        expectedToken: _session.token,
+      );
+      _setState(
+        ok
+            ? CrossRouteMorphState.capturedSource
+            : CrossRouteMorphState.atDestination,
+      );
+      return ok;
+    } finally {
+      _registry.setHiddenForKey(destinationKey, hidden: false);
+    }
+  }
 
-    final ok = await _runOverlayAnimation(
-      overlayState: overlayState,
-      source: currentDestination,
-      destination: source,
-      direction: MorphDirection.reverse,
-      expectedToken: _session.token,
-    );
-    _registry.setHidden(tagId, false);
-    _setState(
-      ok
-          ? CrossRouteMorphState.capturedSource
-          : CrossRouteMorphState.atDestination,
-    );
-    return ok;
+  Future<bool> playReverseDuringPop({
+    required BuildContext context,
+    required String tagId,
+    Object? result,
+    Duration timeout = const Duration(milliseconds: 1500),
+  }) async {
+    if (_state == CrossRouteMorphState.disposed || isAnimating) return false;
+    if (!_session.hasSessionFor(tagId)) return false;
+    if (_state != CrossRouteMorphState.atDestination) return false;
+    final source = _session.source;
+    if (source == null) return false;
+
+    final destinationKey = _registry.keyFor(tagId);
+    if (destinationKey == null) return false;
+    final destinationSnapshot = await _registry.captureByKey(destinationKey);
+    if (destinationSnapshot == null) return false;
+    if (!context.mounted) return false;
+    final overlayState = Overlay.of(context, rootOverlay: true);
+    final program = await _loadProgram();
+    if (program == null || !overlayState.mounted) return false;
+    if (!context.mounted) return false;
+    final navigator = Navigator.of(context);
+    final sourceKey = _registry.keyForExcluding(tagId, destinationKey);
+    final expectedToken = _session.token;
+
+    _registry.setHiddenForKey(destinationKey, hidden: true);
+    if (sourceKey != null) {
+      _registry.setHiddenForKey(sourceKey, hidden: true);
+    }
+    _setState(CrossRouteMorphState.animatingReverse);
+
+    bool completed = false;
+    try {
+      _showOverlay(
+        overlayState: overlayState,
+        program: program,
+        source: destinationSnapshot,
+        destination: source,
+        direction: MorphDirection.reverse,
+        progress: 0.0,
+      );
+
+      if (navigator.mounted) {
+        unawaited(navigator.maybePop(result));
+      }
+
+      completed = await _animateOverlay(
+        direction: MorphDirection.reverse,
+        expectedToken: expectedToken,
+      ).timeout(timeout, onTimeout: () => false);
+    } finally {
+      _removeOverlay();
+      _registry.setHiddenForKey(destinationKey, hidden: false);
+      if (sourceKey != null) {
+        _registry.setHiddenForKey(sourceKey, hidden: false);
+      }
+      _setState(
+        completed
+            ? CrossRouteMorphState.capturedSource
+            : CrossRouteMorphState.idle,
+      );
+    }
+    return true;
   }
 
   Future<bool> playReverseBeforePop({
     required BuildContext context,
     required String tagId,
+    Object? result,
     Duration timeout = const Duration(milliseconds: 1500),
   }) async {
-    final navigator = Navigator.of(context);
-    final started = await playReverse(context: context, tagId: tagId);
-    if (!started) return false;
-
-    final completed = await _waitForState(
-      CrossRouteMorphState.capturedSource,
+    return playReverseDuringPop(
+      context: context,
+      tagId: tagId,
+      result: result,
       timeout: timeout,
     );
-    if (completed && navigator.mounted) {
-      navigator.pop();
-    }
-    return completed;
   }
 
   Future<bool> _runOverlayAnimation({
@@ -431,20 +548,65 @@ class CrossRouteMorphController extends ChangeNotifier {
     _visualState = null;
   }
 
-  Future<MorphSnapshot?> _waitForSnapshotById(
+  Future<GlobalKey?> _waitForTargetKey(
     String tagId, {
+    required GlobalKey excludedKey,
     required Duration timeout,
   }) async {
     final sw = Stopwatch()..start();
     while (sw.elapsed < timeout && _state != CrossRouteMorphState.disposed) {
       await SchedulerBinding.instance.endOfFrame;
-      final snapshot = await _registry.captureById(tagId);
-      if (snapshot != null) {
-        return snapshot;
+      final key = _registry.keyForExcluding(tagId, excludedKey);
+      if (key != null) {
+        return key;
       }
       await Future<void>.delayed(const Duration(milliseconds: 16));
     }
     return null;
+  }
+
+  Future<MorphSnapshot?> _waitForStableSnapshotByKey(
+    GlobalKey key, {
+    required Duration timeout,
+    int consecutiveStableFrames = 3,
+    double rectEpsilonPx = 0.5,
+  }) async {
+    final sw = Stopwatch()..start();
+    MorphSnapshot? previous;
+    MorphSnapshot? latest;
+    var stableFrames = 0;
+    while (sw.elapsed < timeout && _state != CrossRouteMorphState.disposed) {
+      await SchedulerBinding.instance.endOfFrame;
+      final snapshot = await _registry.captureByKey(key);
+      if (snapshot != null) {
+        latest = snapshot;
+        if (previous != null &&
+            _isRectStable(
+              previous.rect,
+              snapshot.rect,
+              epsilon: rectEpsilonPx,
+            )) {
+          stableFrames += 1;
+        } else {
+          stableFrames = 1;
+        }
+        previous = snapshot;
+        if (stableFrames >= consecutiveStableFrames) {
+          return latest;
+        }
+      } else {
+        stableFrames = 0;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 16));
+    }
+    return latest;
+  }
+
+  bool _isRectStable(Rect a, Rect b, {required double epsilon}) {
+    return (a.left - b.left).abs() <= epsilon &&
+        (a.top - b.top).abs() <= epsilon &&
+        (a.width - b.width).abs() <= epsilon &&
+        (a.height - b.height).abs() <= epsilon;
   }
 
   Future<ui.FragmentProgram?> _loadProgram() async {
@@ -457,33 +619,6 @@ class CrossRouteMorphController extends ChangeNotifier {
     } catch (_) {
       return null;
     }
-  }
-
-  Future<bool> _waitForState(
-    CrossRouteMorphState target, {
-    required Duration timeout,
-  }) async {
-    if (_state == target) return true;
-    final completer = Completer<bool>();
-    late VoidCallback listener;
-    Timer? timer;
-
-    listener = () {
-      if (_state == target && !completer.isCompleted) {
-        timer?.cancel();
-        removeListener(listener);
-        completer.complete(true);
-      }
-    };
-
-    addListener(listener);
-    timer = Timer(timeout, () {
-      if (!completer.isCompleted) {
-        removeListener(listener);
-        completer.complete(false);
-      }
-    });
-    return completer.future;
   }
 
   void _setState(CrossRouteMorphState next) {
@@ -536,21 +671,13 @@ class _CrossRouteMorphPopHandlerState extends State<CrossRouteMorphPopHandler> {
         _handling = true;
         final navigator = Navigator.of(context);
         try {
-          final started = await widget.controller.playReverse(
+          final started = await widget.controller.playReverseDuringPop(
             context: context,
             tagId: widget.tagId,
+            result: result,
+            timeout: widget.reverseTimeout,
           );
-          if (started) {
-            final completed = await widget.controller._waitForState(
-              CrossRouteMorphState.capturedSource,
-              timeout: widget.reverseTimeout,
-            );
-            if (completed && navigator.mounted) {
-              navigator.maybePop(result);
-              return;
-            }
-          }
-          if (widget.fallbackPopOnFailure && navigator.mounted) {
+          if (!started && widget.fallbackPopOnFailure && navigator.mounted) {
             navigator.maybePop(result);
           }
         } finally {
@@ -579,16 +706,13 @@ class _CrossRouteMorphPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final effectiveProgress = direction == MorphDirection.forward
-        ? progress
-        : (1.0 - progress);
     MorphCoordinator.setUniforms(
       shader: shader,
       viewport: size,
       sourceRect: source,
       targetRect: destination,
       time: progress * 6.28,
-      progress: effectiveProgress,
+      progress: progress,
     );
     canvas.drawRect(Offset.zero & size, Paint()..shader = shader);
   }
