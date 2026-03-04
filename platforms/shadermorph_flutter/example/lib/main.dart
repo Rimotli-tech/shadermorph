@@ -65,7 +65,6 @@ class MorphDemoPage extends StatefulWidget {
 }
 
 class _MorphDemoPageState extends State<MorphDemoPage> {
-
   Widget _buildMorphCard() {
     return Container(
       width: 250,
@@ -250,10 +249,7 @@ class _CrossRouteSourcePageState extends State<CrossRouteSourcePage> {
 class CrossRouteDestinationPage extends StatelessWidget {
   final String tagId;
 
-  const CrossRouteDestinationPage({
-    super.key,
-    required this.tagId,
-  });
+  const CrossRouteDestinationPage({super.key, required this.tagId});
 
   Widget _buildMorphCard_3() {
     return Container(
@@ -285,10 +281,7 @@ class CrossRouteDestinationPage extends StatelessWidget {
   }
 
   Future<void> _reverseThenPop(BuildContext context) async {
-    await ShaderMorph.reverseAndPop(
-      context,
-      tagId: tagId,
-    );
+    await ShaderMorph.reverseAndPop(context, tagId: tagId);
   }
 
   @override

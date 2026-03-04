@@ -3,6 +3,15 @@
 This document defines the *exact* metadata-to-uniform contract between the Flutter framework layer
 and the unified morph shader engine.
 
+## 0. Implementation Status / Runtime Notes
+
+- Protocol-V2 is currently the default renderer in the Flutter package runtime.
+- Legacy V1 render path still exists as a temporary emergency fallback.
+- Runtime flags are documented in `platforms/shadermorph_flutter/README.md`:
+  - `SHADERMORPH_FORCE_V1_RENDER`
+  - `SHADERMORPH_V2_SHADOW_BIND`
+- Deprecated V2 opt-in flags are still accepted for one compatibility window but should not be used for new setups.
+
 ## 1. Coordinate Space (NON-NEGOTIABLE)
 
 ### 1.1 Physical pixels

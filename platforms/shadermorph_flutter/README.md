@@ -2,6 +2,24 @@
 
 Event-driven GPU morph transitions for single-page and cross-route flows.
 
+## Current Scope
+
+- DX simplification is the active workstream (unified, event-driven API).
+- Protocol-V2 is the default renderer.
+- Style-system expansion is deferred until post-migration stabilization.
+
+## Current API Priority
+
+Primary path (recommended):
+- `ShaderMorph`
+- `ShaderMorphHandle`
+- `ShaderMorph.tag(...)`
+- `ShaderMorph.push(...)`
+- `ShaderMorph.reverseAndPop(...)`
+
+Legacy path:
+- Deprecated compatibility APIs remain temporarily for migration only.
+
 ## Quickstart (Single-Page)
 
 ```dart
@@ -75,6 +93,10 @@ ShaderMorph.tag(id: 'card_tag', child: destinationCard)
 await ShaderMorph.reverseAndPop(context, tagId: 'card_tag');
 ```
 
+Cross-route lifecycle note:
+- Prefer `ShaderMorph.push(...)` for orchestration so source capture, route push, and destination capture stay in one deterministic flow.
+- Keep `suppressTransition: true` unless you intentionally want visible route motion.
+
 ## Transition Config
 
 `MorphTransitionConfig` controls interpolation and style:
@@ -98,14 +120,13 @@ await ShaderMorph.reverseAndPop(context, tagId: 'card_tag');
 - `MorphTag(...)` -> `ShaderMorph.tag(...)`
 - `controller.playReverseDuringPop(...)` -> `ShaderMorph.reverseAndPop(...)`
 
-## Legacy Compatibility
+## Breaking-Change Migration Note
 
-Controller-first and legacy cross-route internals remain available for one migration window,
-but new development should use the event-driven API above.
+The event-driven facade is the primary API. Legacy controller-heavy APIs remain available only for the migration window and are deprecated.
 
 ## Protocol-V2 Runtime
 
-Protocol-V2 is default for both single-page and cross-route rendering.
+Protocol-V2 is the default for single-page and cross-route rendering.
 
 Emergency fallback to legacy V1 (temporary):
 
@@ -120,3 +141,7 @@ flutter run \
   --dart-define=SHADERMORPH_FORCE_V1_RENDER=true \
   --dart-define=SHADERMORPH_V2_SHADOW_BIND=true
 ```
+
+Deprecated compatibility flags (still accepted for one window, with runtime warnings):
+- `SHADERMORPH_V2_RENDER_SINGLE_PAGE`
+- `SHADERMORPH_V2_RENDER_CROSS_ROUTE`
