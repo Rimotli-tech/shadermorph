@@ -46,7 +46,8 @@ class ShaderMorphHandle {
   Future<bool> toggle() => _toggle();
 
   static ShaderMorphHandle of(BuildContext context) {
-    final scope = context.dependOnInheritedWidgetOfExactType<_ShaderMorphScope>();
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<_ShaderMorphScope>();
     if (scope == null) {
       throw FlutterError(
         'ShaderMorphHandle.of(context) called with no ShaderMorph ancestor.',
@@ -69,10 +70,13 @@ class _ShaderMorphScope extends InheritedWidget {
 class ShaderMorph extends StatefulWidget {
   final Widget source;
   final Widget destination;
+  final Widget? sourceCapture;
+  final Widget? destinationCapture;
   final Duration duration;
   final ShaderMorphController? controller;
   final MorphTransitionConfig transitionConfig;
   final BackPopMode backPopMode;
+  final MorphShadowCapturePolicy shadowCapturePolicy;
   final ShaderMorphTriggerMode triggerMode;
   final ValueChanged<ShaderMorphEvent>? onEvent;
   final Widget Function(BuildContext context, Widget morphChild)? childBuilder;
@@ -80,8 +84,19 @@ class ShaderMorph extends StatefulWidget {
   static final Map<String, CrossRouteMorphController> _routeControllers =
       <String, CrossRouteMorphController>{};
 
-  static Widget tag({required String id, required Widget child}) {
-    return MorphTag(id: id, child: child);
+  static Widget tag({
+    required String id,
+    required Widget child,
+    Widget? captureChild,
+    MorphShadowCapturePolicy shadowCapturePolicy =
+        MorphShadowCapturePolicy.exclude,
+  }) {
+    return MorphTag(
+      id: id,
+      captureChild: captureChild,
+      shadowCapturePolicy: shadowCapturePolicy,
+      child: child,
+    );
   }
 
   static Future<bool> push({
@@ -90,11 +105,14 @@ class ShaderMorph extends StatefulWidget {
     required Widget page,
     MorphTransitionConfig transitionConfig = const MorphTransitionConfig(),
     BackPopMode backPopMode = BackPopMode.reverseThenPop,
+    MorphShadowCapturePolicy shadowCapturePolicy =
+        MorphShadowCapturePolicy.exclude,
     bool suppressTransition = true,
     RouteSettings? settings,
   }) async {
     final controller = CrossRouteMorphController(
       transitionConfig: transitionConfig,
+      shadowCapturePolicy: shadowCapturePolicy,
     );
     _routeControllers[tagId]?.dispose();
     _routeControllers[tagId] = controller;
@@ -156,10 +174,13 @@ class ShaderMorph extends StatefulWidget {
     super.key,
     required this.source,
     required this.destination,
+    this.sourceCapture,
+    this.destinationCapture,
     this.controller,
     this.duration = const Duration(milliseconds: 800),
     this.transitionConfig = const MorphTransitionConfig(),
     this.backPopMode = BackPopMode.reverseThenPop,
+    this.shadowCapturePolicy = MorphShadowCapturePolicy.exclude,
     this.triggerMode = ShaderMorphTriggerMode.manual,
     this.onEvent,
     this.childBuilder,
@@ -284,6 +305,9 @@ class _ShaderMorphState extends State<ShaderMorph>
       destinationKey: direction == MorphDirection.forward
           ? _destinationPaintKey
           : _sourcePaintKey,
+      captureOptions: MorphCaptureOptions(
+        shadowPolicy: widget.shadowCapturePolicy,
+      ),
     );
 
     if (!mounted) return false;
@@ -480,15 +504,22 @@ class _ShaderMorphState extends State<ShaderMorph>
       children: [
         Opacity(
           opacity: _destinationVisible ? 1.0 : 0.01,
-          child: RepaintBoundary(
-            key: _destinationPaintKey,
+          child: ShaderMorphCaptureLayer(
+            boundaryKey: _destinationPaintKey,
+            shadowCapturePolicy: widget.shadowCapturePolicy,
+            captureChild: widget.destinationCapture,
             child: widget.destination,
           ),
         ),
         const Divider(height: 50),
         Opacity(
           opacity: _sourceVisible ? 1.0 : 0.0,
-          child: RepaintBoundary(key: _sourcePaintKey, child: widget.source),
+          child: ShaderMorphCaptureLayer(
+            boundaryKey: _sourcePaintKey,
+            shadowCapturePolicy: widget.shadowCapturePolicy,
+            captureChild: widget.sourceCapture,
+            child: widget.source,
+          ),
         ),
       ],
     );
@@ -510,10 +541,7 @@ class _ShaderMorphState extends State<ShaderMorph>
         ),
       );
     } else {
-      content = _ShaderMorphScope(
-        handle: handle,
-        child: content,
-      );
+      content = _ShaderMorphScope(handle: handle, child: content);
     }
     return PopScope(
       canPop: _allowNextPop,
@@ -555,7 +583,8 @@ class _ShaderMorphCrossRouteScope extends StatefulWidget {
       _ShaderMorphCrossRouteScopeState();
 }
 
-class _ShaderMorphCrossRouteScopeState extends State<_ShaderMorphCrossRouteScope> {
+class _ShaderMorphCrossRouteScopeState
+    extends State<_ShaderMorphCrossRouteScope> {
   bool _handling = false;
 
   @override

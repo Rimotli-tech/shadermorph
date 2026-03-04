@@ -1,6 +1,8 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
+enum MorphShadowCapturePolicy { exclude, include }
+
 /// Holds the visual and spatial state of a widget at the moment of capture.
 class MorphSnapshot {
   final ui.Image image;
@@ -21,8 +23,5 @@ class MorphPairSnapshot {
   final MorphSnapshot source;
   final MorphSnapshot destination;
 
-  MorphPairSnapshot({
-    required this.source,
-    required this.destination,
-  });
+  MorphPairSnapshot({required this.source, required this.destination});
 }

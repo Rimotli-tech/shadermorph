@@ -3,22 +3,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shadermorph_flutter/shadermorph_flutter.dart';
 
 void main() {
-  testWidgets('ShaderMorph can be used without explicitly passing a controller', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: ShaderMorph(
-            source: Text('source'),
-            destination: Text('destination'),
+  testWidgets(
+    'ShaderMorph can be used without explicitly passing a controller',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: ShaderMorph(
+              source: Text('source'),
+              destination: Text('destination'),
+            ),
           ),
         ),
-      ),
-    );
+      );
 
-    expect(find.byType(ShaderMorph), findsOneWidget);
-  });
+      expect(find.byType(ShaderMorph), findsOneWidget);
+      final morph = tester.widget<ShaderMorph>(find.byType(ShaderMorph));
+      expect(morph.shadowCapturePolicy, MorphShadowCapturePolicy.exclude);
+    },
+  );
 
   testWidgets('ShaderMorph.tag returns tag widget for cross-route endpoint', (
     WidgetTester tester,
@@ -32,6 +35,8 @@ void main() {
     );
 
     expect(find.text('tagged'), findsOneWidget);
+    final tag = tester.widget<MorphTag>(find.byType(MorphTag));
+    expect(tag.shadowCapturePolicy, MorphShadowCapturePolicy.exclude);
   });
 
   testWidgets('ShaderMorphHandle.of throws when no ShaderMorph ancestor', (
@@ -52,10 +57,7 @@ void main() {
       MaterialApp(
         home: Builder(
           builder: (context) => Scaffold(
-            body: ElevatedButton(
-              onPressed: () {},
-              child: const Text('go'),
-            ),
+            body: ElevatedButton(onPressed: () {}, child: const Text('go')),
           ),
         ),
       ),
@@ -68,5 +70,13 @@ void main() {
       page: const Scaffold(body: Text('dest')),
     );
     expect(started, isFalse);
+
+    final startedInclude = await ShaderMorph.push(
+      context: context,
+      tagId: 'missing_tag',
+      page: const Scaffold(body: Text('dest2')),
+      shadowCapturePolicy: MorphShadowCapturePolicy.include,
+    );
+    expect(startedInclude, isFalse);
   });
 }

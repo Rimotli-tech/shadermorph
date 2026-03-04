@@ -65,20 +65,22 @@ class MorphDemoPage extends StatefulWidget {
 }
 
 class _MorphDemoPageState extends State<MorphDemoPage> {
-  Widget _buildMorphCard() {
+  Widget _buildMorphCard({bool includeShadow = true}) {
     return Container(
       width: 250,
       height: 150,
       decoration: BoxDecoration(
         color: Colors.blueAccent,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black45,
-            blurRadius: 10,
-            offset: Offset(0, 5),
-          ),
-        ],
+        boxShadow: includeShadow
+            ? const [
+                BoxShadow(
+                  color: Colors.black45,
+                  blurRadius: 10,
+                  offset: Offset(0, 5),
+                ),
+              ]
+            : null,
       ),
       child: const Center(
         child: Text(
@@ -93,20 +95,22 @@ class _MorphDemoPageState extends State<MorphDemoPage> {
     );
   }
 
-  Widget _buildMorphCard_2() {
+  Widget _buildMorphCard_2({bool includeShadow = true}) {
     return Container(
       width: 200,
       height: 100,
       decoration: BoxDecoration(
         color: const Color.fromARGB(255, 255, 68, 140),
         borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black45,
-            blurRadius: 10,
-            offset: Offset(0, 5),
-          ),
-        ],
+        boxShadow: includeShadow
+            ? const [
+                BoxShadow(
+                  color: Colors.black45,
+                  blurRadius: 10,
+                  offset: Offset(0, 5),
+                ),
+              ]
+            : null,
       ),
       child: const Center(
         child: Text(
@@ -135,13 +139,16 @@ class _MorphDemoPageState extends State<MorphDemoPage> {
       body: ShaderMorph(
         duration: const Duration(milliseconds: 600),
         backPopMode: BackPopMode.reverseThenPop,
+        shadowCapturePolicy: MorphShadowCapturePolicy.exclude,
         triggerMode: ShaderMorphTriggerMode.onBuildForward,
         transitionConfig: const MorphTransitionConfig(
           interpolation: MorphInterpolation.easeInOut,
           shaderStyle: MorphShaderStyle.soft,
         ),
-        destination: _buildMorphCard_2(),
-        source: _buildMorphCard(),
+        destination: _buildMorphCard_2(includeShadow: true),
+        destinationCapture: _buildMorphCard_2(includeShadow: false),
+        source: _buildMorphCard(includeShadow: true),
+        sourceCapture: _buildMorphCard(includeShadow: false),
         childBuilder: (context, morphChild) {
           final handle = ShaderMorphHandle.of(context);
           return Center(
@@ -183,20 +190,22 @@ class CrossRouteSourcePage extends StatefulWidget {
 class _CrossRouteSourcePageState extends State<CrossRouteSourcePage> {
   static const String _tagId = 'cross_route_card';
 
-  Widget _buildMorphCard() {
+  Widget _buildMorphCard({bool includeShadow = true}) {
     return Container(
       width: 250,
       height: 150,
       decoration: BoxDecoration(
         color: Colors.indigo,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black45,
-            blurRadius: 10,
-            offset: Offset(0, 5),
-          ),
-        ],
+        boxShadow: includeShadow
+            ? const [
+                BoxShadow(
+                  color: Colors.black45,
+                  blurRadius: 10,
+                  offset: Offset(0, 5),
+                ),
+              ]
+            : null,
       ),
       child: const Center(
         child: Text(
@@ -217,6 +226,7 @@ class _CrossRouteSourcePageState extends State<CrossRouteSourcePage> {
       context: context,
       tagId: _tagId,
       page: const CrossRouteDestinationPage(tagId: _tagId),
+      shadowCapturePolicy: MorphShadowCapturePolicy.exclude,
       suppressTransition: true,
       transitionConfig: const MorphTransitionConfig(
         interpolation: MorphInterpolation.smoothStep,
@@ -233,7 +243,12 @@ class _CrossRouteSourcePageState extends State<CrossRouteSourcePage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ShaderMorph.tag(id: _tagId, child: _buildMorphCard()),
+            ShaderMorph.tag(
+              id: _tagId,
+              shadowCapturePolicy: MorphShadowCapturePolicy.exclude,
+              captureChild: _buildMorphCard(includeShadow: false),
+              child: _buildMorphCard(includeShadow: true),
+            ),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: _goToDestination,
@@ -251,20 +266,22 @@ class CrossRouteDestinationPage extends StatelessWidget {
 
   const CrossRouteDestinationPage({super.key, required this.tagId});
 
-  Widget _buildMorphCard_3() {
+  Widget _buildMorphCard_3({bool includeShadow = true}) {
     return Container(
       width: 200,
       height: 120,
       decoration: BoxDecoration(
         color: const Color.fromARGB(255, 9, 161, 112),
         borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black45,
-            blurRadius: 10,
-            offset: Offset(0, 5),
-          ),
-        ],
+        boxShadow: includeShadow
+            ? const [
+                BoxShadow(
+                  color: Colors.black45,
+                  blurRadius: 10,
+                  offset: Offset(0, 5),
+                ),
+              ]
+            : null,
       ),
       child: const Center(
         child: Text(
@@ -298,7 +315,12 @@ class CrossRouteDestinationPage extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ShaderMorph.tag(id: tagId, child: _buildMorphCard_3()),
+            ShaderMorph.tag(
+              id: tagId,
+              shadowCapturePolicy: MorphShadowCapturePolicy.exclude,
+              captureChild: _buildMorphCard_3(includeShadow: false),
+              child: _buildMorphCard_3(includeShadow: true),
+            ),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () => _reverseThenPop(context),

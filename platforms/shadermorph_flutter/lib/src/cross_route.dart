@@ -24,9 +24,17 @@ enum CrossRouteMorphState {
 @Deprecated('Use ShaderMorph.tag(...) facade.')
 class MorphTag extends StatefulWidget {
   final String id;
+  final MorphShadowCapturePolicy shadowCapturePolicy;
+  final Widget? captureChild;
   final Widget child;
 
-  const MorphTag({super.key, required this.id, required this.child});
+  const MorphTag({
+    super.key,
+    required this.id,
+    this.shadowCapturePolicy = MorphShadowCapturePolicy.include,
+    this.captureChild,
+    required this.child,
+  });
 
   @override
   State<MorphTag> createState() => _MorphTagState();
@@ -64,7 +72,12 @@ class _MorphTagState extends State<MorphTag> {
         final hidden = hiddenTags.contains(_paintKey);
         return Opacity(
           opacity: hidden ? 0.0 : 1.0,
-          child: RepaintBoundary(key: _paintKey, child: widget.child),
+          child: ShaderMorphCaptureLayer(
+            boundaryKey: _paintKey,
+            shadowCapturePolicy: widget.shadowCapturePolicy,
+            captureChild: widget.captureChild,
+            child: widget.child,
+          ),
         );
       },
     );
@@ -77,9 +90,8 @@ class MorphTagRegistry {
   static final MorphTagRegistry instance = MorphTagRegistry._();
 
   final Map<String, List<GlobalKey>> _tags = <String, List<GlobalKey>>{};
-  final ValueNotifier<Set<GlobalKey>> hiddenTags = ValueNotifier<Set<GlobalKey>>(
-    <GlobalKey>{},
-  );
+  final ValueNotifier<Set<GlobalKey>> hiddenTags =
+      ValueNotifier<Set<GlobalKey>>(<GlobalKey>{});
 
   void register(String id, GlobalKey key) {
     final keys = _tags.putIfAbsent(id, () => <GlobalKey>[]);
@@ -99,15 +111,25 @@ class MorphTagRegistry {
 
   GlobalKey? keyFor(String id) => _latestMountedKey(id);
 
-  Future<MorphSnapshot?> captureById(String id) async {
+  Future<MorphSnapshot?> captureById(
+    String id, {
+    MorphCaptureOptions options = const MorphCaptureOptions(
+      shadowPolicy: MorphShadowCapturePolicy.include,
+    ),
+  }) async {
     final key = keyFor(id);
     if (key == null) return null;
-    return captureByKey(key);
+    return captureByKey(key, options: options);
   }
 
-  Future<MorphSnapshot?> captureByKey(GlobalKey key) async {
+  Future<MorphSnapshot?> captureByKey(
+    GlobalKey key, {
+    MorphCaptureOptions options = const MorphCaptureOptions(
+      shadowPolicy: MorphShadowCapturePolicy.include,
+    ),
+  }) async {
     try {
-      return await MorphTracker.capture(key);
+      return await MorphTracker.capture(key, options: options);
     } catch (_) {
       return null;
     }
@@ -192,6 +214,7 @@ class CrossRouteMorphSessionStore {
 class CrossRouteMorphController extends ChangeNotifier {
   final Duration duration;
   final MorphTransitionConfig transitionConfig;
+  final MorphShadowCapturePolicy shadowCapturePolicy;
   final MorphTagRegistry _registry;
   final CrossRouteMorphSessionStore _session;
 
@@ -208,10 +231,14 @@ class CrossRouteMorphController extends ChangeNotifier {
   CrossRouteMorphController({
     this.duration = const Duration(milliseconds: 800),
     this.transitionConfig = const MorphTransitionConfig(),
+    this.shadowCapturePolicy = MorphShadowCapturePolicy.include,
     MorphTagRegistry? registry,
     CrossRouteMorphSessionStore? session,
   }) : _registry = registry ?? MorphTagRegistry.instance,
        _session = session ?? CrossRouteMorphSessionStore();
+
+  MorphCaptureOptions get _captureOptions =>
+      MorphCaptureOptions(shadowPolicy: shadowCapturePolicy);
 
   CrossRouteMorphState get state => _state;
 
@@ -232,7 +259,10 @@ class CrossRouteMorphController extends ChangeNotifier {
 
     final sourceKey = _registry.keyFor(tagId);
     if (sourceKey == null) return false;
-    final sourceSnapshot = await _registry.captureByKey(sourceKey);
+    final sourceSnapshot = await _registry.captureByKey(
+      sourceKey,
+      options: _captureOptions,
+    );
     if (sourceSnapshot == null) return false;
     if (!context.mounted) return false;
     final navigator = Navigator.of(context);
@@ -310,7 +340,10 @@ class CrossRouteMorphController extends ChangeNotifier {
     final destinationKey = _registry.keyFor(tagId);
     if (destinationKey == null) return false;
 
-    final destination = await _registry.captureByKey(destinationKey);
+    final destination = await _registry.captureByKey(
+      destinationKey,
+      options: _captureOptions,
+    );
     if (destination == null) return false;
     if (!context.mounted) return false;
     final overlayState = Overlay.of(context, rootOverlay: true);
@@ -346,7 +379,10 @@ class CrossRouteMorphController extends ChangeNotifier {
     if (source == null) return false;
     final destinationKey = _registry.keyFor(tagId);
     if (destinationKey == null) return false;
-    final currentDestination = await _registry.captureByKey(destinationKey);
+    final currentDestination = await _registry.captureByKey(
+      destinationKey,
+      options: _captureOptions,
+    );
     if (currentDestination == null) return false;
     if (!context.mounted) return false;
     final overlayState = Overlay.of(context, rootOverlay: true);
@@ -386,7 +422,10 @@ class CrossRouteMorphController extends ChangeNotifier {
 
     final destinationKey = _registry.keyFor(tagId);
     if (destinationKey == null) return false;
-    final destinationSnapshot = await _registry.captureByKey(destinationKey);
+    final destinationSnapshot = await _registry.captureByKey(
+      destinationKey,
+      options: _captureOptions,
+    );
     if (destinationSnapshot == null) return false;
     if (!context.mounted) return false;
     final overlayState = Overlay.of(context, rootOverlay: true);
@@ -592,7 +631,10 @@ class CrossRouteMorphController extends ChangeNotifier {
     var stableFrames = 0;
     while (sw.elapsed < timeout && _state != CrossRouteMorphState.disposed) {
       await SchedulerBinding.instance.endOfFrame;
-      final snapshot = await _registry.captureByKey(key);
+      final snapshot = await _registry.captureByKey(
+        key,
+        options: _captureOptions,
+      );
       if (snapshot != null) {
         latest = snapshot;
         if (previous != null &&
