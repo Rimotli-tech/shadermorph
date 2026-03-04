@@ -15,6 +15,9 @@ abstract class ShaderMorphPlaybackDelegate {
   Future<bool> play({required MorphDirection direction});
 }
 
+@Deprecated(
+  'Use event-driven ShaderMorph API (triggerMode/onEvent/ShaderMorphHandle).',
+)
 class ShaderMorphController extends ChangeNotifier {
   ShaderMorphPlaybackDelegate? _delegate;
   MorphPlaybackState _state = MorphPlaybackState.idleSource;

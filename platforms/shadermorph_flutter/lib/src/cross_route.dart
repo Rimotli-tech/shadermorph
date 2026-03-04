@@ -21,6 +21,7 @@ enum CrossRouteMorphState {
   disposed,
 }
 
+@Deprecated('Use ShaderMorph.tag(...) facade.')
 class MorphTag extends StatefulWidget {
   final String id;
   final Widget child;
@@ -187,6 +188,7 @@ class CrossRouteMorphSessionStore {
   }
 }
 
+@Deprecated('Use ShaderMorph.push(...) and ShaderMorph.reverseAndPop(...).')
 class CrossRouteMorphController extends ChangeNotifier {
   final Duration duration;
   final MorphTransitionConfig transitionConfig;
@@ -669,6 +671,7 @@ class CrossRouteMorphController extends ChangeNotifier {
   }
 }
 
+@Deprecated('Use ShaderMorph.push(...) and ShaderMorph.reverseAndPop(...).')
 class CrossRouteMorphPopHandler extends StatefulWidget {
   final CrossRouteMorphController controller;
   final String tagId;

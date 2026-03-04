@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
@@ -5,23 +6,163 @@ import '../models.dart';
 import '../tracker.dart';
 import '../coordinator.dart';
 import '../controller.dart';
+import '../cross_route.dart';
+import '../navigation.dart';
 import '../runtime_config.dart';
 import '../transition_config.dart';
+
+enum ShaderMorphTriggerMode {
+  manual,
+  tapToggle,
+  tapForward,
+  tapReverse,
+  onBuildForward,
+}
+
+enum ShaderMorphEventType {
+  startedForward,
+  completedForward,
+  startedReverse,
+  completedReverse,
+  failed,
+  popped,
+}
+
+class ShaderMorphEvent {
+  final ShaderMorphEventType type;
+
+  const ShaderMorphEvent(this.type);
+}
+
+class ShaderMorphHandle {
+  final Future<bool> Function() _forward;
+  final Future<bool> Function() _reverse;
+  final Future<bool> Function() _toggle;
+
+  const ShaderMorphHandle(this._forward, this._reverse, this._toggle);
+
+  Future<bool> forward() => _forward();
+  Future<bool> reverse() => _reverse();
+  Future<bool> toggle() => _toggle();
+
+  static ShaderMorphHandle of(BuildContext context) {
+    final scope = context.dependOnInheritedWidgetOfExactType<_ShaderMorphScope>();
+    if (scope == null) {
+      throw FlutterError(
+        'ShaderMorphHandle.of(context) called with no ShaderMorph ancestor.',
+      );
+    }
+    return scope.handle;
+  }
+}
+
+class _ShaderMorphScope extends InheritedWidget {
+  final ShaderMorphHandle handle;
+
+  const _ShaderMorphScope({required this.handle, required super.child});
+
+  @override
+  bool updateShouldNotify(covariant _ShaderMorphScope oldWidget) =>
+      oldWidget.handle != handle;
+}
 
 class ShaderMorph extends StatefulWidget {
   final Widget source;
   final Widget destination;
   final Duration duration;
-  final ShaderMorphController controller;
+  final ShaderMorphController? controller;
   final MorphTransitionConfig transitionConfig;
+  final BackPopMode backPopMode;
+  final ShaderMorphTriggerMode triggerMode;
+  final ValueChanged<ShaderMorphEvent>? onEvent;
+  final Widget Function(BuildContext context, Widget morphChild)? childBuilder;
+
+  static final Map<String, CrossRouteMorphController> _routeControllers =
+      <String, CrossRouteMorphController>{};
+
+  static Widget tag({required String id, required Widget child}) {
+    return MorphTag(id: id, child: child);
+  }
+
+  static Future<bool> push({
+    required BuildContext context,
+    required String tagId,
+    required Widget page,
+    MorphTransitionConfig transitionConfig = const MorphTransitionConfig(),
+    BackPopMode backPopMode = BackPopMode.reverseThenPop,
+    bool suppressTransition = true,
+    RouteSettings? settings,
+  }) async {
+    final controller = CrossRouteMorphController(
+      transitionConfig: transitionConfig,
+    );
+    _routeControllers[tagId]?.dispose();
+    _routeControllers[tagId] = controller;
+    final wrappedPage = _ShaderMorphCrossRouteScope(
+      tagId: tagId,
+      controller: controller,
+      backPopMode: backPopMode,
+      child: page,
+    );
+    return controller.startToRoute(
+      context: context,
+      tagId: tagId,
+      route: buildMorphRoute(
+        page: wrappedPage,
+        suppressTransition: suppressTransition,
+        settings: settings,
+      ),
+    );
+  }
+
+  static Future<bool> reverseAndPop(
+    BuildContext context, {
+    required String tagId,
+    Object? result,
+    Duration timeout = const Duration(milliseconds: 1500),
+  }) async {
+    final controller = _routeControllers[tagId];
+    if (controller == null) {
+      if (context.mounted) {
+        Navigator.of(context).maybePop(result);
+      }
+      return false;
+    }
+    final ok = await controller.playReverseDuringPop(
+      context: context,
+      tagId: tagId,
+      result: result,
+      timeout: timeout,
+    );
+    if (!ok && context.mounted) {
+      Navigator.of(context).maybePop(result);
+    }
+    _releaseRouteController(tagId, controller);
+    return ok;
+  }
+
+  static void _releaseRouteController(
+    String tagId,
+    CrossRouteMorphController controller,
+  ) {
+    final active = _routeControllers[tagId];
+    if (identical(active, controller)) {
+      _routeControllers.remove(tagId);
+    }
+    controller.dispose();
+  }
 
   const ShaderMorph({
     super.key,
     required this.source,
     required this.destination,
-    required this.controller,
+    this.controller,
     this.duration = const Duration(milliseconds: 800),
     this.transitionConfig = const MorphTransitionConfig(),
+    this.backPopMode = BackPopMode.reverseThenPop,
+    this.triggerMode = ShaderMorphTriggerMode.manual,
+    this.onEvent,
+    this.childBuilder,
   });
 
   @override
@@ -46,6 +187,17 @@ class _ShaderMorphState extends State<ShaderMorph>
   bool _sourceVisible = true;
   bool _destinationVisible = false;
   OverlayEntry? _overlayEntry;
+  ShaderMorphController? _ownedController;
+  bool _didRunBuildForward = false;
+  bool _handlingPop = false;
+  bool _allowNextPop = false;
+
+  ShaderMorphController get _effectiveController =>
+      widget.controller ?? (_ownedController ??= ShaderMorphController());
+
+  void _emit(ShaderMorphEventType type) {
+    widget.onEvent?.call(ShaderMorphEvent(type));
+  }
 
   @override
   void initState() {
@@ -56,9 +208,17 @@ class _ShaderMorphState extends State<ShaderMorph>
           _completeMorph();
         }
       });
-    widget.controller.attach(this);
-    widget.controller.setStateFromHost(_playbackState);
+    _effectiveController.attach(this);
+    _effectiveController.setStateFromHost(_playbackState);
     _loadShader();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (widget.triggerMode == ShaderMorphTriggerMode.onBuildForward &&
+          !_didRunBuildForward) {
+        _didRunBuildForward = true;
+        unawaited(_forward());
+      }
+    });
   }
 
   Future<void> _loadShader() async {
@@ -100,9 +260,10 @@ class _ShaderMorphState extends State<ShaderMorph>
   void didUpdateWidget(covariant ShaderMorph oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller) {
-      oldWidget.controller.detach(this);
-      widget.controller.attach(this);
-      widget.controller.setStateFromHost(_playbackState);
+      final oldEffective = oldWidget.controller ?? _ownedController;
+      oldEffective?.detach(this);
+      _effectiveController.attach(this);
+      _effectiveController.setStateFromHost(_playbackState);
     }
     if (oldWidget.duration != widget.duration) {
       _controller.duration = widget.duration;
@@ -135,11 +296,35 @@ class _ShaderMorphState extends State<ShaderMorph>
       _sourceVisible = false;
       _destinationVisible = false;
     });
-    widget.controller.setStateFromHost(_playbackState);
+    _effectiveController.setStateFromHost(_playbackState);
+    _emit(
+      direction == MorphDirection.forward
+          ? ShaderMorphEventType.startedForward
+          : ShaderMorphEventType.startedReverse,
+    );
 
     _showOverlay();
-    await _controller.forward(from: 0.0);
-    return true;
+    try {
+      await _controller.forward(from: 0.0);
+      return true;
+    } catch (_) {
+      _emit(ShaderMorphEventType.failed);
+      return false;
+    }
+  }
+
+  Future<bool> _forward() => play(direction: MorphDirection.forward);
+
+  Future<bool> _reverse() => play(direction: MorphDirection.reverse);
+
+  Future<bool> _toggle() {
+    if (_playbackState == MorphPlaybackState.idleSource) {
+      return _forward();
+    }
+    if (_playbackState == MorphPlaybackState.idleDestination) {
+      return _reverse();
+    }
+    return Future<bool>.value(false);
   }
 
   void _showOverlay() {
@@ -204,13 +389,93 @@ class _ShaderMorphState extends State<ShaderMorph>
           _destinationVisible = false;
         }
       });
-      widget.controller.setStateFromHost(_playbackState);
+      _effectiveController.setStateFromHost(_playbackState);
+      _emit(
+        _activeDirection == MorphDirection.forward
+            ? ShaderMorphEventType.completedForward
+            : ShaderMorphEventType.completedReverse,
+      );
+    }
+  }
+
+  Future<void> _popWithBypass(NavigatorState navigator, Object? result) async {
+    if (!mounted || !navigator.mounted) return;
+    setState(() {
+      _allowNextPop = true;
+    });
+    try {
+      if (navigator.canPop()) {
+        navigator.pop(result);
+      } else {
+        await navigator.maybePop(result);
+      }
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _allowNextPop = false;
+      });
+    }
+  }
+
+  Future<void> _handleBackPop(Object? result) async {
+    if (_handlingPop) return;
+    _handlingPop = true;
+    final navigator = Navigator.of(context);
+    try {
+      if (widget.backPopMode == BackPopMode.immediatePopReset) {
+        _effectiveController.resetToSource();
+        await _popWithBypass(navigator, result);
+        _emit(ShaderMorphEventType.popped);
+        return;
+      }
+
+      if (_playbackState != MorphPlaybackState.idleDestination) {
+        await _popWithBypass(navigator, result);
+        _emit(ShaderMorphEventType.popped);
+        return;
+      }
+
+      final started = await _reverse();
+      if (!started) {
+        await _popWithBypass(navigator, result);
+        _emit(ShaderMorphEventType.popped);
+        return;
+      }
+
+      final completed = await _effectiveController.waitForState(
+        MorphPlaybackState.idleSource,
+        timeout: const Duration(milliseconds: 1200),
+      );
+      if (completed || navigator.mounted) {
+        await _popWithBypass(navigator, result);
+        _emit(ShaderMorphEventType.popped);
+      }
+    } finally {
+      _handlingPop = false;
+    }
+  }
+
+  void _handleTapTrigger() {
+    switch (widget.triggerMode) {
+      case ShaderMorphTriggerMode.manual:
+      case ShaderMorphTriggerMode.onBuildForward:
+        return;
+      case ShaderMorphTriggerMode.tapToggle:
+        unawaited(_toggle());
+        return;
+      case ShaderMorphTriggerMode.tapForward:
+        unawaited(_forward());
+        return;
+      case ShaderMorphTriggerMode.tapReverse:
+        unawaited(_reverse());
+        return;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final handle = ShaderMorphHandle(_forward, _reverse, _toggle);
+    Widget content = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Opacity(
@@ -227,16 +492,105 @@ class _ShaderMorphState extends State<ShaderMorph>
         ),
       ],
     );
+    if (widget.triggerMode != ShaderMorphTriggerMode.manual &&
+        widget.triggerMode != ShaderMorphTriggerMode.onBuildForward) {
+      content = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _handleTapTrigger,
+        child: content,
+      );
+    }
+    final morphContent = content;
+    if (widget.childBuilder != null) {
+      content = _ShaderMorphScope(
+        handle: handle,
+        child: Builder(
+          builder: (scopedContext) =>
+              widget.childBuilder!(scopedContext, morphContent),
+        ),
+      );
+    } else {
+      content = _ShaderMorphScope(
+        handle: handle,
+        child: content,
+      );
+    }
+    return PopScope(
+      canPop: _allowNextPop,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        await _handleBackPop(result);
+      },
+      child: content,
+    );
   }
 
   @override
   void dispose() {
     _overlayEntry?.remove();
     _overlayEntry = null;
-    widget.controller.detach(this);
-    widget.controller.setStateFromHost(MorphPlaybackState.disposed);
+    _effectiveController.detach(this);
+    _effectiveController.setStateFromHost(MorphPlaybackState.disposed);
+    _ownedController?.dispose();
     _controller.dispose();
     super.dispose();
+  }
+}
+
+class _ShaderMorphCrossRouteScope extends StatefulWidget {
+  final String tagId;
+  final CrossRouteMorphController controller;
+  final BackPopMode backPopMode;
+  final Widget child;
+
+  const _ShaderMorphCrossRouteScope({
+    required this.tagId,
+    required this.controller,
+    required this.backPopMode,
+    required this.child,
+  });
+
+  @override
+  State<_ShaderMorphCrossRouteScope> createState() =>
+      _ShaderMorphCrossRouteScopeState();
+}
+
+class _ShaderMorphCrossRouteScopeState extends State<_ShaderMorphCrossRouteScope> {
+  bool _handling = false;
+
+  @override
+  void dispose() {
+    // Controller lifecycle is managed after reverse+pop completion.
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.backPopMode == BackPopMode.immediatePopReset) {
+      return widget.child;
+    }
+    return PopScope(
+      canPop: !widget.controller.canReverse(widget.tagId),
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop || _handling) return;
+        _handling = true;
+        final navigator = Navigator.of(context);
+        try {
+          final started = await widget.controller.playReverseDuringPop(
+            context: context,
+            tagId: widget.tagId,
+            result: result,
+          );
+          if (!started && navigator.mounted) {
+            navigator.maybePop(result);
+          }
+          ShaderMorph._releaseRouteController(widget.tagId, widget.controller);
+        } finally {
+          _handling = false;
+        }
+      },
+      child: widget.child,
+    );
   }
 }
 

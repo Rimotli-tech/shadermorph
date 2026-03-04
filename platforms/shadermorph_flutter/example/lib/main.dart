@@ -64,10 +64,7 @@ class MorphDemoPage extends StatefulWidget {
   State<MorphDemoPage> createState() => _MorphDemoPageState();
 }
 
-class _MorphDemoPageState extends State<MorphDemoPage> with RouteAware {
-  final ShaderMorphController _controller = ShaderMorphController();
-  ShaderMorphRouteBridge? _routeBridge;
-  bool _isRouteBridgeSubscribed = false;
+class _MorphDemoPageState extends State<MorphDemoPage> {
 
   Widget _buildMorphCard() {
     return Container(
@@ -126,83 +123,52 @@ class _MorphDemoPageState extends State<MorphDemoPage> with RouteAware {
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final route = ModalRoute.of(context);
-    if (route is PageRoute<dynamic>) {
-      _routeBridge ??= ShaderMorphRouteBridge(
-        controller: _controller,
-        forwardOnPush: true,
-      );
-      if (!_isRouteBridgeSubscribed) {
-        morphRouteObserver.subscribe(_routeBridge!, route);
-        _isRouteBridgeSubscribed = true;
-      }
-    }
-  }
-
-  Future<void> _reverseThenPop() async {
-    if (mounted) {
-      Navigator.of(context).maybePop();
-    }
-  }
-
-  @override
-  void dispose() {
-    if (_routeBridge != null) {
-      morphRouteObserver.unsubscribe(_routeBridge!);
-      _isRouteBridgeSubscribed = false;
-    }
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return ShaderMorphPopHandler(
-      controller: _controller,
-      backPopMode: BackPopMode.reverseThenPop,
-      child: Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            onPressed: _reverseThenPop,
-            icon: const Icon(Icons.arrow_back),
-          ),
-          title: const Text('ShaderMorph Demo'),
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          onPressed: () => Navigator.of(context).maybePop(),
+          icon: const Icon(Icons.arrow_back),
         ),
-        backgroundColor: const Color.fromARGB(255, 255, 255, 255),
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ShaderMorph(
-                controller: _controller,
-                duration: const Duration(milliseconds: 600),
-                transitionConfig: const MorphTransitionConfig(
-                  interpolation: MorphInterpolation.easeInOut,
-                  shaderStyle: MorphShaderStyle.soft,
+        title: const Text('ShaderMorph Demo'),
+      ),
+      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+      body: ShaderMorph(
+        duration: const Duration(milliseconds: 600),
+        backPopMode: BackPopMode.reverseThenPop,
+        triggerMode: ShaderMorphTriggerMode.onBuildForward,
+        transitionConfig: const MorphTransitionConfig(
+          interpolation: MorphInterpolation.easeInOut,
+          shaderStyle: MorphShaderStyle.soft,
+        ),
+        destination: _buildMorphCard_2(),
+        source: _buildMorphCard(),
+        childBuilder: (context, morphChild) {
+          final handle = ShaderMorphHandle.of(context);
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                morphChild,
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ElevatedButton(
+                      onPressed: handle.forward,
+                      child: const Text('Forward'),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: handle.reverse,
+                      child: const Text('Reverse'),
+                    ),
+                  ],
                 ),
-                destination: _buildMorphCard_2(),
-                source: _buildMorphCard(),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ElevatedButton(
-                    onPressed: _controller.forward,
-                    child: const Text('Forward'),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: _controller.reverse,
-                    child: const Text('Reverse'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -217,13 +183,6 @@ class CrossRouteSourcePage extends StatefulWidget {
 
 class _CrossRouteSourcePageState extends State<CrossRouteSourcePage> {
   static const String _tagId = 'cross_route_card';
-  final CrossRouteMorphController _controller = CrossRouteMorphController(
-    duration: const Duration(milliseconds: 1800),
-    transitionConfig: const MorphTransitionConfig(
-      interpolation: MorphInterpolation.smoothStep,
-      shaderStyle: MorphShaderStyle.soft,
-    ),
-  );
 
   Widget _buildMorphCard() {
     return Container(
@@ -255,20 +214,16 @@ class _CrossRouteSourcePageState extends State<CrossRouteSourcePage> {
   }
 
   Future<void> _goToDestination() async {
-    await _controller.startToRoute(
+    await ShaderMorph.push(
       context: context,
       tagId: _tagId,
-      route: buildMorphRoute(
-        suppressTransition: true,
-        page: CrossRouteDestinationPage(controller: _controller, tagId: _tagId),
+      page: const CrossRouteDestinationPage(tagId: _tagId),
+      suppressTransition: true,
+      transitionConfig: const MorphTransitionConfig(
+        interpolation: MorphInterpolation.smoothStep,
+        shaderStyle: MorphShaderStyle.soft,
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
   }
 
   @override
@@ -279,7 +234,7 @@ class _CrossRouteSourcePageState extends State<CrossRouteSourcePage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            MorphTag(id: _tagId, child: _buildMorphCard()),
+            ShaderMorph.tag(id: _tagId, child: _buildMorphCard()),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: _goToDestination,
@@ -293,12 +248,10 @@ class _CrossRouteSourcePageState extends State<CrossRouteSourcePage> {
 }
 
 class CrossRouteDestinationPage extends StatelessWidget {
-  final CrossRouteMorphController controller;
   final String tagId;
 
   const CrossRouteDestinationPage({
     super.key,
-    required this.controller,
     required this.tagId,
   });
 
@@ -332,40 +285,33 @@ class CrossRouteDestinationPage extends StatelessWidget {
   }
 
   Future<void> _reverseThenPop(BuildContext context) async {
-    final ok = await controller.playReverseDuringPop(
-      context: context,
+    await ShaderMorph.reverseAndPop(
+      context,
       tagId: tagId,
     );
-    if (!ok && context.mounted) {
-      Navigator.of(context).pop();
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return CrossRouteMorphPopHandler(
-      controller: controller,
-      tagId: tagId,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Cross-Route Destination'),
-          leading: IconButton(
-            onPressed: () => _reverseThenPop(context),
-            icon: const Icon(Icons.arrow_back),
-          ),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Cross-Route Destination'),
+        leading: IconButton(
+          onPressed: () => _reverseThenPop(context),
+          icon: const Icon(Icons.arrow_back),
         ),
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              MorphTag(id: tagId, child: _buildMorphCard_3()),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () => _reverseThenPop(context),
-                child: const Text('Reverse + Pop'),
-              ),
-            ],
-          ),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ShaderMorph.tag(id: tagId, child: _buildMorphCard_3()),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => _reverseThenPop(context),
+              child: const Text('Reverse + Pop'),
+            ),
+          ],
         ),
       ),
     );

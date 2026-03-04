@@ -4,6 +4,7 @@ import 'controller.dart';
 
 enum BackPopMode { reverseThenPop, immediatePopReset }
 
+@Deprecated('Use ShaderMorph(... backPopMode: ...) directly.')
 class ShaderMorphPopHandler extends StatelessWidget {
   final ShaderMorphController controller;
   final Widget child;
@@ -32,6 +33,7 @@ class ShaderMorphPopHandler extends StatelessWidget {
   }
 }
 
+@Deprecated('Use ShaderMorph(... backPopMode: ...) directly.')
 class _ShaderMorphPopScope extends StatefulWidget {
   final ShaderMorphController controller;
   final Duration reverseTimeout;
@@ -119,6 +121,7 @@ class _ShaderMorphPopScopeState extends State<_ShaderMorphPopScope> {
   }
 }
 
+@Deprecated('Use ShaderMorph.push(...) helper for cross-route pushes.')
 Route<void> buildMorphRoute({
   required Widget page,
   bool suppressTransition = true,
@@ -138,6 +141,9 @@ Route<void> buildMorphRoute({
   );
 }
 
+@Deprecated(
+  'Use triggerMode/onEvent or ShaderMorph.push/reverseAndPop orchestration.',
+)
 class ShaderMorphRouteBridge extends RouteAware {
   final ShaderMorphController controller;
   final bool forwardOnPush;
