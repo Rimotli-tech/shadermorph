@@ -1,16 +1,6 @@
-enum MorphInterpolation {
-  linear,
-  easeIn,
-  easeOut,
-  easeInOut,
-  smoothStep,
-}
+enum MorphInterpolation { linear, easeIn, easeOut, easeInOut, smoothStep }
 
-enum MorphShaderStyle {
-  classic,
-  soft,
-  ripple,
-}
+enum MorphShaderStyle { classic, soft, ripple, liquid }
 
 class MorphTransitionConfig {
   final MorphInterpolation interpolation;
@@ -50,6 +40,8 @@ class MorphTransitionConfig {
         return 1;
       case MorphShaderStyle.ripple:
         return 2;
+      case MorphShaderStyle.liquid:
+        return 3;
     }
   }
 }

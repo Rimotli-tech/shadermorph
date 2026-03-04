@@ -28,6 +28,10 @@ float mixFactorByStyle(float t, int style) {
     // Ripple: slower start, faster finish.
     return pow(t, 0.7);
   }
+  if (style == 3) {
+    // Liquid: slightly eased with no overshoot.
+    return clamp((t * t * (3.0 - (2.0 * t))) * 0.96 + (0.04 * t), 0.0, 1.0);
+  }
   // Classic.
   return t;
 }
@@ -43,16 +47,82 @@ vec2 warpLocalUvByStyle(vec2 localUv, float t, int style) {
     vec2 safeDir = dist > 0.00001 ? (d / dist) : vec2(0.0);
     return localUv + (safeDir * wave * amp);
   }
+  if (style == 3) {
+    // Liquid: bobbing + wobble + directional anticipation.
+    vec2 center = vec2(0.5, 0.5);
+    vec2 d = localUv - center;
+    float dist = length(d);
+    vec2 safeDir = dist > 0.00001 ? (d / dist) : vec2(0.0);
+
+    float phase = t * 6.28318530718;
+    float envelope = sin(t * 3.14159265359);
+    float bob = sin((localUv.x * 6.0) + (phase * 1.3)) * 0.020 * envelope;
+    float wobble = sin((dist * 24.0) - (phase * 2.1)) * 0.030 * envelope;
+    float edgeFalloff = 1.0 - smoothstep(0.35, 0.75, dist);
+    vec2 radial = safeDir * wobble * edgeFalloff;
+
+    // Directional anticipation toward target center.
+    // Approximate motion direction using progress-weighted axis bias.
+    vec2 dirBias = normalize(
+      vec2(0.00001 + (t * 0.02), 0.00001 + ((1.0 - t) * 0.02))
+    );
+    vec2 anticipate = dirBias * 0.018 * envelope;
+
+    return localUv + radial + vec2(0.0, bob) + anticipate;
+  }
   return localUv;
 }
 
+float alphaMaskByStyle(vec2 localUv, float t, int style) {
+  if (style != 3) {
+    return 1.0;
+  }
+
+  // Liquid hybrid silhouette: blob in-rect + tiny adaptive spill.
+  vec2 center = vec2(0.5, 0.5);
+  vec2 d = localUv - center;
+  float x = d.x;
+  float y = d.y;
+
+  // Elliptic blob base.
+  float rx = 0.50;
+  float ry = 0.44;
+  float blobField = ((x * x) / (rx * rx)) + ((y * y) / (ry * ry));
+
+  // Mid-flight wobble contour.
+  float envelope = sin(clamp(t, 0.0, 1.0) * 3.14159265359);
+  float contour = 0.11 * envelope *
+      sin((atan(y, x) * 4.0) + (length(d) * 18.0) - (t * 11.0));
+
+  // Tiny controlled spill near mid-flight.
+  float spill = 0.03 * envelope;
+  float threshold = 1.0 + contour + spill;
+
+  return 1.0 - smoothstep(threshold, threshold + 0.03, blobField);
+}
+
 vec4 samplePairColor(vec2 screenUv, vec4 sourceRect, vec4 targetRect) {
+  int style = int(u_morphStyle + 0.5);
+
   vec4 movedRect = vec4(
     mix(sourceRect.xy, targetRect.xy, u_progress),
     mix(sourceRect.zw, targetRect.zw, u_progress)
   );
 
-  if (!isInsideRect(screenUv, movedRect)) {
+  // Hybrid adaptive spill for liquid style only.
+  float spillEps = 0.0;
+  if (style == 3) {
+    float env = sin(clamp(u_progress, 0.0, 1.0) * 3.14159265359);
+    spillEps = 0.014 * env;
+  }
+  vec4 membershipRect = vec4(
+    movedRect.x - spillEps,
+    movedRect.y - spillEps,
+    movedRect.z + (2.0 * spillEps),
+    movedRect.w + (2.0 * spillEps)
+  );
+
+  if (!isInsideRect(screenUv, membershipRect)) {
     return vec4(0.0);
   }
 
@@ -62,15 +132,20 @@ vec4 samplePairColor(vec2 screenUv, vec4 sourceRect, vec4 targetRect) {
     (screenUv.x - movedRect.x) / safeW,
     (screenUv.y - movedRect.y) / safeH
   );
-  int style = int(u_morphStyle + 0.5);
   localUv = warpLocalUvByStyle(localUv, u_progress, style);
+  float styleAlpha = alphaMaskByStyle(localUv, u_progress, style);
+  if (styleAlpha <= 0.001) {
+    return vec4(0.0);
+  }
   localUv = clamp(localUv, vec2(0.0), vec2(1.0));
   localUv.y = 1.0 - localUv.y;
 
   vec4 sourceColor = texture(uTexture, localUv);
   vec4 targetColor = texture(uTargetTexture, localUv);
   float t = mixFactorByStyle(clamp(u_progress, 0.0, 1.0), style);
-  return mix(sourceColor, targetColor, t);
+  vec4 mixed = mix(sourceColor, targetColor, t);
+  mixed.a *= styleAlpha;
+  return mixed;
 }
 
 void main() {

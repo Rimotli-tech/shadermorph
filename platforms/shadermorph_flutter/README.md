@@ -6,7 +6,7 @@ Event-driven GPU morph transitions for single-page and cross-route flows.
 
 - DX simplification is the active workstream (unified, event-driven API).
 - Protocol-V2 is the default renderer.
-- Style-system expansion is deferred until post-migration stabilization.
+- Style expansion is in segmented rollout (L1 currently adds `liquid` only).
 
 ## Current API Priority
 
@@ -111,6 +111,7 @@ Cross-route lifecycle note:
   - `MorphShaderStyle.classic`
   - `MorphShaderStyle.soft`
   - `MorphShaderStyle.ripple`
+  - `MorphShaderStyle.liquid`
 
 ## Old -> New API Mapping
 

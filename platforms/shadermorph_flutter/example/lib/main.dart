@@ -65,6 +65,8 @@ class MorphDemoPage extends StatefulWidget {
 }
 
 class _MorphDemoPageState extends State<MorphDemoPage> {
+  MorphShaderStyle _style = MorphShaderStyle.soft;
+
   Widget _buildMorphCard({bool includeShadow = true}) {
     return Container(
       width: 250,
@@ -135,15 +137,15 @@ class _MorphDemoPageState extends State<MorphDemoPage> {
         ),
         title: const Text('ShaderMorph Demo'),
       ),
-      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+      backgroundColor: const Color.fromARGB(255, 59, 56, 56),
       body: ShaderMorph(
         duration: const Duration(milliseconds: 600),
         backPopMode: BackPopMode.reverseThenPop,
         shadowCapturePolicy: MorphShadowCapturePolicy.exclude,
         triggerMode: ShaderMorphTriggerMode.onBuildForward,
-        transitionConfig: const MorphTransitionConfig(
+        transitionConfig: MorphTransitionConfig(
           interpolation: MorphInterpolation.easeInOut,
-          shaderStyle: MorphShaderStyle.soft,
+          shaderStyle: _style,
         ),
         destination: _buildMorphCard_2(includeShadow: true),
         destinationCapture: _buildMorphCard_2(includeShadow: false),
@@ -157,6 +159,26 @@ class _MorphDemoPageState extends State<MorphDemoPage> {
               children: [
                 morphChild,
                 const SizedBox(height: 24),
+                DropdownButton<MorphShaderStyle>(
+                  value: _style,
+                  items: const [
+                    DropdownMenuItem(
+                      value: MorphShaderStyle.soft,
+                      child: Text('soft'),
+                    ),
+                    DropdownMenuItem(
+                      value: MorphShaderStyle.liquid,
+                      child: Text('liquid'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() {
+                      _style = value;
+                    });
+                  },
+                ),
+                const SizedBox(height: 12),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -189,6 +211,7 @@ class CrossRouteSourcePage extends StatefulWidget {
 
 class _CrossRouteSourcePageState extends State<CrossRouteSourcePage> {
   static const String _tagId = 'cross_route_card';
+  MorphShaderStyle _style = MorphShaderStyle.soft;
 
   Widget _buildMorphCard({bool includeShadow = true}) {
     return Container(
@@ -228,9 +251,9 @@ class _CrossRouteSourcePageState extends State<CrossRouteSourcePage> {
       page: const CrossRouteDestinationPage(tagId: _tagId),
       shadowCapturePolicy: MorphShadowCapturePolicy.exclude,
       suppressTransition: true,
-      transitionConfig: const MorphTransitionConfig(
+      transitionConfig: MorphTransitionConfig(
         interpolation: MorphInterpolation.smoothStep,
-        shaderStyle: MorphShaderStyle.soft,
+        shaderStyle: _style,
       ),
     );
   }
@@ -250,6 +273,26 @@ class _CrossRouteSourcePageState extends State<CrossRouteSourcePage> {
               child: _buildMorphCard(includeShadow: true),
             ),
             const SizedBox(height: 24),
+            DropdownButton<MorphShaderStyle>(
+              value: _style,
+              items: const [
+                DropdownMenuItem(
+                  value: MorphShaderStyle.soft,
+                  child: Text('soft'),
+                ),
+                DropdownMenuItem(
+                  value: MorphShaderStyle.liquid,
+                  child: Text('liquid'),
+                ),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  _style = value;
+                });
+              },
+            ),
+            const SizedBox(height: 12),
             ElevatedButton(
               onPressed: _goToDestination,
               child: const Text('Go To Destination (Auto Morph)'),

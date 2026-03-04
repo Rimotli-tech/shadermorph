@@ -12,24 +12,35 @@ void main() {
 
   test('style index mapping is stable', () {
     expect(
-      const MorphTransitionConfig(shaderStyle: MorphShaderStyle.classic)
-          .shaderStyleIndex,
+      const MorphTransitionConfig(
+        shaderStyle: MorphShaderStyle.classic,
+      ).shaderStyleIndex,
       0,
     );
     expect(
-      const MorphTransitionConfig(shaderStyle: MorphShaderStyle.soft)
-          .shaderStyleIndex,
+      const MorphTransitionConfig(
+        shaderStyle: MorphShaderStyle.soft,
+      ).shaderStyleIndex,
       1,
     );
     expect(
-      const MorphTransitionConfig(shaderStyle: MorphShaderStyle.ripple)
-          .shaderStyleIndex,
+      const MorphTransitionConfig(
+        shaderStyle: MorphShaderStyle.ripple,
+      ).shaderStyleIndex,
       2,
+    );
+    expect(
+      const MorphTransitionConfig(
+        shaderStyle: MorphShaderStyle.liquid,
+      ).shaderStyleIndex,
+      3,
     );
   });
 
   test('interpolation transforms progress deterministically', () {
-    const inCfg = MorphTransitionConfig(interpolation: MorphInterpolation.easeIn);
+    const inCfg = MorphTransitionConfig(
+      interpolation: MorphInterpolation.easeIn,
+    );
     const outCfg = MorphTransitionConfig(
       interpolation: MorphInterpolation.easeOut,
     );

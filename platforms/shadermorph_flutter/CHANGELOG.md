@@ -1,5 +1,7 @@
 ## Unreleased
 
+- L1 style segment: added `MorphShaderStyle.liquid` (Protocol-V2 style index `3`).
+- Liquid style now applies visible silhouette deformation (hybrid blob + controlled spill) rather than rectangle-only internal distortion.
 - Protocol-V2 is now the default renderer for both single-page and cross-route morph flows.
 - Added emergency fallback runtime flag: `SHADERMORPH_FORCE_V1_RENDER=true`.
 - Added optional shadow-bind debug flag while V1 is forced: `SHADERMORPH_V2_SHADOW_BIND=true`.
