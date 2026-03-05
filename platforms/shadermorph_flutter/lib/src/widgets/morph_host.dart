@@ -213,7 +213,7 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
   OverlayEntry? _overlayEntry;
   MorphPairSnapshot? _snapshot;
   MorphDirection _activeDirection = MorphDirection.forward;
-  GlobalKey? _hiddenKey;
+  final Set<GlobalKey> _hiddenKeys = <GlobalKey>{};
   ui.FragmentProgram? _program;
   ui.FragmentProgram? _v1Program;
   ui.FragmentShader? _v2ShadowShader;
@@ -353,9 +353,7 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
     final destinationEndpoint = direction == MorphDirection.forward
         ? pair.destination
         : pair.source;
-    final hideKey = direction == MorphDirection.forward
-        ? pair.destination.key
-        : pair.source.key;
+    final hideKeys = <GlobalKey>{pair.source.key, pair.destination.key};
 
     var success = false;
     try {
@@ -372,8 +370,10 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
         ),
       );
       if (!mounted) return false;
-      _hiddenKey = hideKey;
-      _hostController.hideKey(hideKey);
+      for (final key in hideKeys) {
+        _hiddenKeys.add(key);
+        _hostController.hideKey(key);
+      }
       _activeDirection = direction;
       _snapshot = MorphPairSnapshot(
         source: sourceSnapshot,
@@ -480,11 +480,10 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
     _snapshot = null;
     _controller.stop();
     _controller.reset();
-    final hiddenKey = _hiddenKey;
-    if (hiddenKey != null) {
+    for (final hiddenKey in _hiddenKeys) {
       _hostController.unhideKey(hiddenKey);
     }
-    _hiddenKey = null;
+    _hiddenKeys.clear();
     _animating = false;
   }
 
