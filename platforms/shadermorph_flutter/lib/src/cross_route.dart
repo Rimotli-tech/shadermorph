@@ -42,6 +42,28 @@ class MorphTag extends StatefulWidget {
 
 class _MorphTagState extends State<MorphTag> {
   final GlobalKey _paintKey = GlobalKey();
+  static const List<double> _transparentColorMatrix = <double>[
+    1.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+  ];
 
   @override
   void initState() {
@@ -75,13 +97,23 @@ class _MorphTagState extends State<MorphTag> {
             final hidden =
                 hiddenTags.contains(_paintKey) ||
                 hiddenTagIds.contains(widget.id);
-            return Opacity(
-              opacity: hidden ? 0.0 : 1.0,
-              child: ShaderMorphCaptureLayer(
-                boundaryKey: _paintKey,
-                shadowCapturePolicy: widget.shadowCapturePolicy,
-                captureChild: widget.captureChild,
-                child: widget.child,
+            Widget content = ShaderMorphCaptureLayer(
+              boundaryKey: _paintKey,
+              shadowCapturePolicy: widget.shadowCapturePolicy,
+              captureChild: widget.captureChild,
+              child: widget.child,
+            );
+            if (!hidden) {
+              return content;
+            }
+            return IgnorePointer(
+              child: ExcludeSemantics(
+                child: ColorFiltered(
+                  colorFilter: const ColorFilter.matrix(
+                    _transparentColorMatrix,
+                  ),
+                  child: content,
+                ),
               ),
             );
           },
@@ -322,8 +354,6 @@ class CrossRouteMorphController extends ChangeNotifier {
         _setState(CrossRouteMorphState.idle);
         return false;
       }
-      // Release ID-level hide before capture so destination texture is not blank.
-      _registry.setHiddenForId(tagId, hidden: false);
       final destinationSnapshot = await _waitForStableSnapshotByKey(
         destinationKey,
         timeout: const Duration(seconds: 3),
