@@ -1,5 +1,14 @@
 ## Unreleased
 
+- Added single-page Host + Tags API:
+  - `ShaderMorphHost`
+  - `ShaderMorphTag`
+  - `ShaderMorphHost.of(context).forwardByTag(...)`
+  - `ShaderMorphHost.of(context).reverseByTag(...)`
+  - `ShaderMorphRole` and `ShaderMorphTrigger`
+- Single-page host now owns tag pairing, overlay lifecycle, and endpoint hide/unhide during morph.
+- Updated example app to use host-driven tag morphing.
+- Marked `ShaderMorph(source:..., destination:...)` as legacy single-page path in docs.
 - L1 style segment: added `MorphShaderStyle.liquid` (Protocol-V2 style index `3`).
 - Liquid style now applies visible silhouette deformation (hybrid blob + controlled spill) rather than rectangle-only internal distortion.
 - Protocol-V2 is now the default renderer for both single-page and cross-route morph flows.

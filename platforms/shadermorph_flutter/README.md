@@ -11,8 +11,10 @@ Event-driven GPU morph transitions for single-page and cross-route flows.
 ## Current API Priority
 
 Primary path (recommended):
-- `ShaderMorph`
-- `ShaderMorphHandle`
+- `ShaderMorphHost`
+- `ShaderMorphTag`
+- `ShaderMorphHost.of(context).forwardByTag(...)`
+- `ShaderMorphHost.of(context).reverseByTag(...)`
 - `ShaderMorph.tag(...)`
 - `ShaderMorph.push(...)`
 - `ShaderMorph.reverseAndPop(...)`
@@ -23,36 +25,58 @@ Legacy path:
 ## Quickstart (Single-Page)
 
 ```dart
-ShaderMorph(
-  source: const SourceCard(),
-  destination: const DestinationCard(),
+ShaderMorphHost(
   duration: const Duration(milliseconds: 700),
-  triggerMode: ShaderMorphTriggerMode.onBuildForward,
-  backPopMode: BackPopMode.reverseThenPop,
   transitionConfig: const MorphTransitionConfig(
     interpolation: MorphInterpolation.easeInOut,
     shaderStyle: MorphShaderStyle.soft,
   ),
-  childBuilder: (context, morphChild) {
-    final handle = ShaderMorphHandle.of(context);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        morphChild,
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ElevatedButton(onPressed: handle.forward, child: const Text('Forward')),
-            ElevatedButton(onPressed: handle.reverse, child: const Text('Reverse')),
-          ],
-        ),
-      ],
-    );
-  },
+  child: Builder(
+    builder: (context) {
+      final host = ShaderMorphHost.of(context);
+      return Column(
+        children: [
+          GestureDetector(
+            onTap: () => host.forwardByTag('profilePic'),
+            child: ShaderMorphTag(
+              id: 'profilePic',
+              role: ShaderMorphRole.source,
+              child: const SourceAvatar(),
+            ),
+          ),
+          const Spacer(),
+          ShaderMorphTag(
+            id: 'profilePic',
+            role: ShaderMorphRole.destination,
+            child: const DestinationAvatar(),
+          ),
+        ],
+      );
+    },
+  ),
 )
 ```
 
-### Trigger Modes
+Optional tag-level trigger:
+
+```dart
+ShaderMorphTag(
+  id: 'profilePic',
+  role: ShaderMorphRole.source,
+  trigger: ShaderMorphTrigger.onTapForward,
+  child: const SourceAvatar(),
+)
+```
+
+Host behavior:
+- `ShaderMorphHost` owns animation lifecycle, snapshot capture, overlay rendering, and endpoint hide/unhide.
+- During `forwardByTag(id)`, destination is hidden while the overlay morph runs, then restored.
+
+### Legacy Single-Page API (Deprecated)
+
+`ShaderMorph(source: ..., destination: ...)` and `ShaderMorphHandle` remain available in the migration window, but new single-page integrations should use host + tags.
+
+### Legacy Trigger Modes
 
 - `ShaderMorphTriggerMode.manual`
 - `ShaderMorphTriggerMode.tapToggle`
@@ -60,7 +84,7 @@ ShaderMorph(
 - `ShaderMorphTriggerMode.tapReverse`
 - `ShaderMorphTriggerMode.onBuildForward`
 
-### Back Behavior
+### Legacy Back Behavior
 
 - `BackPopMode.reverseThenPop` (default)
 - `BackPopMode.immediatePopReset`
@@ -115,7 +139,8 @@ Cross-route lifecycle note:
 
 ## Old -> New API Mapping
 
-- `ShaderMorphController + await controller.forward()` -> `triggerMode` or `ShaderMorphHandle.of(context).forward()`
+- `ShaderMorphController + await controller.forward()` -> `ShaderMorphHost.of(context).forwardByTag(id)` or explicit tag trigger
+- `ShaderMorph(source:..., destination:...)` -> `ShaderMorphHost(child: ...)` + `ShaderMorphTag(role: ...)`
 - `ShaderMorphPopHandler` -> built into `ShaderMorph(backPopMode: ...)`
 - `CrossRouteMorphController.startToRoute(...)` -> `ShaderMorph.push(...)`
 - `MorphTag(...)` -> `ShaderMorph.tag(...)`

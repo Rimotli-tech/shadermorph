@@ -25,19 +25,23 @@ Status: Protocol-V2 is the default renderer. V1 is retained only as a temporary 
 ## Runtime Architecture Map
 
 Entry API:
-- `ShaderMorph` (single-page unified widget)
+- `ShaderMorphHost` + `ShaderMorphTag` (single-page primary)
+- `ShaderMorphHost.of(context).forwardByTag(...)`
+- `ShaderMorphHost.of(context).reverseByTag(...)`
+- `ShaderMorph` (single-page legacy compatibility)
 - `ShaderMorph.tag(...)`
 - `ShaderMorph.push(...)`
 - `ShaderMorph.reverseAndPop(...)`
 - `ShaderMorphHandle.of(context)` for optional manual control
 
 Single-page path:
-1. `ShaderMorph` captures source and destination snapshots via `MorphTracker`.
-2. `MorphCoordinator` builds metadata and writes uniforms.
-3. V2 shader (`shader_engine_v2.frag`) renders by default.
-4. Back handling is owned by `ShaderMorph` through `BackPopMode`:
-   - `reverseThenPop`
-   - `immediatePopReset`
+1. `ShaderMorphTag` registers endpoint geometry keys with page-local `ShaderMorphHost`.
+2. App triggers explicit morph by id via `forwardByTag` / `reverseByTag`.
+3. `ShaderMorphHost` captures source/destination snapshots via `MorphTracker`.
+4. Host hides target endpoint during active overlay morph and restores visibility after.
+5. `MorphCoordinator` builds metadata and writes uniforms.
+6. V2 shader (`shader_engine_v2.frag`) renders by default.
+7. Legacy `ShaderMorph` path remains during compatibility window.
 
 Cross-route path:
 1. `ShaderMorph.tag(...)` marks endpoints (`MorphTag` internal legacy type).
@@ -53,7 +57,11 @@ Renderer selection:
 ## Public API Surface
 
 Primary (recommended):
-- `ShaderMorph`
+- `ShaderMorphHost`
+- `ShaderMorphTag`
+- `ShaderMorphHostController`
+- `ShaderMorphRole`
+- `ShaderMorphTrigger`
 - `ShaderMorphTriggerMode`
 - `ShaderMorphEvent` / `ShaderMorphEventType`
 - `ShaderMorphHandle`
