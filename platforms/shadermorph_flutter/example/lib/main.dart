@@ -45,7 +45,8 @@ class MorphDemoPage extends StatelessWidget {
 class _PageContent extends StatelessWidget {
   const _PageContent();
 
-  static const String tagId = 'card42';
+  static const String singlePageTagId = 'card42';
+  static const String crossRouteTagId = 'route_card42';
 
   @override
   Widget build(BuildContext context) {
@@ -60,27 +61,44 @@ class _PageContent extends StatelessWidget {
             runSpacing: 12,
             children: [
               ElevatedButton(
-                onPressed: () => host.forwardByTag(tagId),
+                onPressed: () => host.forwardByTag(singlePageTagId),
                 child: const Text('Forward by tag'),
               ),
               OutlinedButton(
-                onPressed: () => host.reverseByTag(tagId),
+                onPressed: () => host.reverseByTag(singlePageTagId),
                 child: const Text('Reverse by tag'),
               ),
             ],
           ),
           const SizedBox(height: 16),
           ShaderMorphTag(
-            id: tagId,
+            id: singlePageTagId,
             role: ShaderMorphRole.source,
+            trigger: ShaderMorphTrigger.onTapForward,
             child: const _TaskCard(),
           ),
           const Spacer(),
           ShaderMorphTag(
-            id: tagId,
+            id: singlePageTagId,
             role: ShaderMorphRole.destination,
             trigger: ShaderMorphTrigger.onTapReverse,
             child: const _DestinationRow(),
+          ),
+          const SizedBox(height: 16),
+          _CrossRouteSourceCard(
+            tagId: crossRouteTagId,
+            onOpen: () async {
+              await ShaderMorph.push(
+                context: context,
+                tagId: crossRouteTagId,
+                transitionConfig: const MorphTransitionConfig(
+                  interpolation: MorphInterpolation.easeInOut,
+                  shaderStyle: MorphShaderStyle.soft,
+                ),
+                page: const _CrossRouteDestinationPage(tagId: crossRouteTagId),
+                suppressTransition: true,
+              );
+            },
           ),
         ],
       ),
@@ -152,6 +170,114 @@ class _DestinationRow extends StatelessWidget {
           Spacer(),
           Icon(Icons.chevron_right, color: Colors.white),
         ],
+      ),
+    );
+  }
+}
+
+class _CrossRouteSourceCard extends StatelessWidget {
+  final String tagId;
+  final VoidCallback onOpen;
+
+  const _CrossRouteSourceCard({required this.tagId, required this.onOpen});
+
+  @override
+  Widget build(BuildContext context) {
+    return ShaderMorph.tag(
+      id: tagId,
+      child: GestureDetector(
+        onTap: onOpen,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2B2835),
+            borderRadius: BorderRadius.circular(22),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.open_in_new, color: Colors.white),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Open Cross-Route Morph',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CrossRouteDestinationPage extends StatelessWidget {
+  final String tagId;
+
+  const _CrossRouteDestinationPage({required this.tagId});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF111014),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF111014),
+        foregroundColor: Colors.white,
+        title: const Text('Cross-Route Destination'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new),
+          onPressed: () {
+            ShaderMorph.reverseAndPop(context, tagId: tagId);
+          },
+        ),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 80),
+            ShaderMorph.tag(
+              id: tagId,
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2B2835),
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Cross-Route Morph Active',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'This widget is the destination endpoint.',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Spacer(),
+            OutlinedButton(
+              onPressed: () {
+                ShaderMorph.reverseAndPop(context, tagId: tagId);
+              },
+              child: const Text('Reverse and Pop'),
+            ),
+          ],
+        ),
       ),
     );
   }
