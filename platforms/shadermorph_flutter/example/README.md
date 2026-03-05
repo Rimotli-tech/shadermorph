@@ -4,14 +4,16 @@ This example demonstrates the current preferred DX facade and Protocol-V2 defaul
 
 ## What This Example Covers
 
-- Single-page morph with event-driven `ShaderMorph`.
+- Single-page tag-driven morph with:
+  - `ShaderMorphHost`
+  - `ShaderMorphTag`
+  - `ShaderMorphHost.of(context).forwardByTag(...)`
+  - `ShaderMorphHost.of(context).reverseByTag(...)`
 - Cross-route morph orchestration with:
   - `ShaderMorph.tag(...)`
   - `ShaderMorph.push(...)`
   - `ShaderMorph.reverseAndPop(...)`
-- Back behavior parity:
-  - `BackPopMode.reverseThenPop`
-  - `BackPopMode.immediatePopReset`
+- Overlay-only transition behavior during active animation (endpoints hidden while shader renders).
 
 ## Run
 
@@ -35,28 +37,22 @@ flutter run \
 
 ## Manual Validation Checklist
 
-1. Single-page default (`BackPopMode.reverseThenPop`):
-- Open Single-Page Morph Demo.
-- Observe auto-forward.
-- Tap app-bar back.
-- Expect reverse first, then pop.
+1. Single-page Host + Tags:
+- Tap **Forward by tag**.
+- Expect source/destination endpoints to hide during motion, then destination visible at completion.
+- Tap **Reverse by tag**.
+- Expect endpoints to hide during motion, then source visible at completion.
 
-2. Single-page immediate pop reset:
-- Set `backPopMode: BackPopMode.immediatePopReset`.
-- Open demo and allow auto-forward.
-- Tap app-bar back.
-- Expect immediate pop without reverse.
-- Re-open and verify forward still works.
-
-3. Cross-route:
-- Open Cross-Route Morph Demo.
-- Tap Go To Destination (Auto Morph).
+2. Cross-route:
+- Tap **Open Cross-Route Morph**.
 - Expect no visible route slide-in from right.
-- Tap Reverse + Pop.
+- Ensure destination endpoint does not flash before morph.
+- Tap **Reverse and Pop**.
 - Re-enter destination and verify flow still works.
 
-4. Regression guard:
+3. Regression guard:
 - No flicker/snap/static texture artifacts.
+- No destination first-frame flash on cross-route destination page.
 
 ## Notes
 

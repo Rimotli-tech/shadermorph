@@ -70,7 +70,11 @@ ShaderMorphTag(
 
 Host behavior:
 - `ShaderMorphHost` owns animation lifecycle, snapshot capture, overlay rendering, and endpoint hide/unhide.
-- During `forwardByTag(id)`, destination is hidden while the overlay morph runs, then restored.
+- Phase model:
+  - Initial: source visible, destination hidden.
+  - `forwardByTag(id)`: both endpoints are hidden while overlay animates; completion lands at destination visible.
+  - `reverseByTag(id)`: both endpoints are hidden while overlay animates; completion lands at source visible.
+- If shader runtime is unavailable on a platform, host applies an instant phase swap fallback instead of no-op.
 
 ### Legacy Single-Page API (Deprecated)
 
@@ -120,6 +124,7 @@ await ShaderMorph.reverseAndPop(context, tagId: 'card_tag');
 Cross-route lifecycle note:
 - Prefer `ShaderMorph.push(...)` for orchestration so source capture, route push, and destination capture stay in one deterministic flow.
 - Keep `suppressTransition: true` unless you intentionally want visible route motion.
+- Cross-route endpoint visibility is host-managed to prevent destination first-frame flash while preserving texture capture.
 
 ## Transition Config
 

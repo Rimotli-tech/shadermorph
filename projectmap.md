@@ -38,7 +38,9 @@ Single-page path:
 1. `ShaderMorphTag` registers endpoint geometry keys with page-local `ShaderMorphHost`.
 2. App triggers explicit morph by id via `forwardByTag` / `reverseByTag`.
 3. `ShaderMorphHost` captures source/destination snapshots via `MorphTracker`.
-4. Host hides target endpoint during active overlay morph and restores visibility after.
+4. Host hides both endpoints during active overlay morph (overlay-only render), then restores phase state:
+   - after forward: destination visible
+   - after reverse: source visible
 5. `MorphCoordinator` builds metadata and writes uniforms.
 6. V2 shader (`shader_engine_v2.frag`) renders by default.
 7. Legacy `ShaderMorph` path remains during compatibility window.
@@ -47,7 +49,8 @@ Cross-route path:
 1. `ShaderMorph.tag(...)` marks endpoints (`MorphTag` internal legacy type).
 2. `ShaderMorph.push(...)` creates and owns a route-scoped controller.
 3. Push route uses no-slide behavior by default (`suppressTransition: true`).
-4. `ShaderMorph.reverseAndPop(...)` drives reverse morph then pops.
+4. Route endpoint visibility is lifecycle-managed to prevent destination flash while preserving capture-ready textures.
+5. `ShaderMorph.reverseAndPop(...)` drives reverse morph then pops.
 
 Renderer selection:
 - Default: V2 for single-page and cross-route.
