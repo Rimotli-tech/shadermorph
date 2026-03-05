@@ -2,99 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shadermorph_flutter/shadermorph_flutter.dart';
 
-class _FakePlaybackDelegate implements ShaderMorphPlaybackDelegate {
-  final List<MorphDirection> calls = <MorphDirection>[];
-  final bool returnValue;
-
-  _FakePlaybackDelegate({required this.returnValue});
-
-  @override
-  Future<bool> play({required MorphDirection direction}) async {
-    calls.add(direction);
-    return returnValue;
-  }
-}
-
-class _PopTestPage extends StatelessWidget {
-  final ShaderMorphController controller;
-  final BackPopMode mode;
-
-  const _PopTestPage({required this.controller, required this.mode});
-
-  @override
-  Widget build(BuildContext context) {
-    return ShaderMorphPopHandler(
-      controller: controller,
-      backPopMode: mode,
-      child: Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back),
-          ),
-          title: const Text('Pop Test'),
-        ),
-        body: const SizedBox.shrink(),
-      ),
-    );
-  }
-}
-
 void main() {
-  test('controller returns false when detached', () async {
-    final controller = ShaderMorphController();
-    expect(await controller.forward(), isFalse);
-    expect(await controller.reverse(), isFalse);
-  });
-
-  test('controller delegates directional calls', () async {
-    final controller = ShaderMorphController();
-    final delegate = _FakePlaybackDelegate(returnValue: true);
-    controller.attach(delegate);
-
-    expect(await controller.forward(), isTrue);
-    expect(await controller.reverse(), isTrue);
-    expect(delegate.calls, <MorphDirection>[
-      MorphDirection.forward,
-      MorphDirection.reverse,
-    ]);
-  });
-
-  test('waitForState resolves when target state is reached', () async {
-    final controller = ShaderMorphController();
-    final future = controller.waitForState(
-      MorphPlaybackState.idleDestination,
-      timeout: const Duration(milliseconds: 100),
-    );
-    controller.debugSetState(MorphPlaybackState.idleDestination);
-    expect(await future, isTrue);
-  });
-
-  testWidgets('ShaderMorph has no internal tap gesture trigger', (
-    WidgetTester tester,
-  ) async {
-    final controller = ShaderMorphController();
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: ShaderMorph(
-            controller: controller,
-            source: const Text('source'),
-            destination: const Text('destination'),
-          ),
-        ),
-      ),
-    );
-
-    final gestureInMorph = find.descendant(
-      of: find.byType(ShaderMorph),
-      matching: find.byType(GestureDetector),
-    );
-    expect(gestureInMorph, findsNothing);
-  });
-
-  testWidgets('MorphTag registers and unregisters tag keys', (
+  testWidgets('CrossRouteMorphTag registers and unregisters tag keys', (
     WidgetTester tester,
   ) async {
     MorphTagRegistry.instance.clearForTesting();
@@ -102,7 +11,7 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
-          body: MorphTag(id: 'tag_a', child: Text('A')),
+          body: CrossRouteMorphTag(id: 'tag_a', child: Text('A')),
         ),
       ),
     );
@@ -129,9 +38,12 @@ void main() {
             return Scaffold(
               body: Column(
                 children: [
-                  const MorphTag(id: 'shared', child: Text('first')),
+                  const CrossRouteMorphTag(id: 'shared', child: Text('first')),
                   if (showSecond)
-                    const MorphTag(id: 'shared', child: Text('second')),
+                    const CrossRouteMorphTag(
+                      id: 'shared',
+                      child: Text('second'),
+                    ),
                   TextButton(
                     onPressed: () {
                       setState(() {
@@ -169,8 +81,8 @@ void main() {
         home: Scaffold(
           body: Column(
             children: [
-              MorphTag(id: 'shared_hidden', child: Text('A')),
-              MorphTag(id: 'shared_hidden', child: Text('B')),
+              CrossRouteMorphTag(id: 'shared_hidden', child: Text('A')),
+              CrossRouteMorphTag(id: 'shared_hidden', child: Text('B')),
             ],
           ),
         ),
@@ -186,24 +98,30 @@ void main() {
     expect(hiddenKey, isNotNull);
     MorphTagRegistry.instance.setHiddenForKey(hiddenKey!, hidden: true);
     await tester.pump();
-    expect(MorphTagRegistry.instance.hiddenTags.value.contains(hiddenKey), isTrue);
+    expect(
+      MorphTagRegistry.instance.hiddenTags.value.contains(hiddenKey),
+      isTrue,
+    );
 
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
-          body: MorphTag(id: 'shared_hidden', child: Text('A')),
+          body: CrossRouteMorphTag(id: 'shared_hidden', child: Text('A')),
         ),
       ),
     );
     await tester.pump();
 
-    expect(MorphTagRegistry.instance.hiddenTags.value.contains(hiddenKey), isTrue);
+    expect(
+      MorphTagRegistry.instance.hiddenTags.value.contains(hiddenKey),
+      isTrue,
+    );
   });
 
   testWidgets(
-    'CrossRouteMorphController startToRoute returns false without tag',
+    'ShaderMorphCrossRouteEngine startToRoute returns false without tag',
     (WidgetTester tester) async {
-      final controller = CrossRouteMorphController();
+      final engine = ShaderMorphCrossRouteEngine();
 
       await tester.pumpWidget(
         MaterialApp(
@@ -211,7 +129,7 @@ void main() {
             builder: (context) => Scaffold(
               body: ElevatedButton(
                 onPressed: () async {
-                  await controller.startToRoute(
+                  await engine.startToRoute(
                     context: context,
                     tagId: 'missing_tag',
                     route: MaterialPageRoute<void>(
@@ -226,7 +144,7 @@ void main() {
         ),
       );
 
-      final started = await controller.startToRoute(
+      final started = await engine.startToRoute(
         context: tester.element(find.text('go')),
         tagId: 'missing_tag',
         route: MaterialPageRoute<void>(
@@ -236,84 +154,4 @@ void main() {
       expect(started, isFalse);
     },
   );
-
-  testWidgets('single-page reverseThenPop can fallback-pop without freeze', (
-    WidgetTester tester,
-  ) async {
-    final controller = ShaderMorphController()
-      ..debugSetState(MorphPlaybackState.idleDestination);
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => Scaffold(
-            body: Center(
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).push<void>(
-                    MaterialPageRoute<void>(
-                      builder: (_) => _PopTestPage(
-                        controller: controller,
-                        mode: BackPopMode.reverseThenPop,
-                      ),
-                    ),
-                  );
-                },
-                child: const Text('open'),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
-    expect(find.text('Pop Test'), findsOneWidget);
-
-    await tester.tap(find.byIcon(Icons.arrow_back));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Pop Test'), findsNothing);
-  });
-
-  testWidgets('single-page immediatePopReset pops without freeze', (
-    WidgetTester tester,
-  ) async {
-    final controller = ShaderMorphController()
-      ..debugSetState(MorphPlaybackState.idleDestination);
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => Scaffold(
-            body: Center(
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).push<void>(
-                    MaterialPageRoute<void>(
-                      builder: (_) => _PopTestPage(
-                        controller: controller,
-                        mode: BackPopMode.immediatePopReset,
-                      ),
-                    ),
-                  );
-                },
-                child: const Text('open'),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
-    expect(find.text('Pop Test'), findsOneWidget);
-
-    await tester.tap(find.byIcon(Icons.arrow_back));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Pop Test'), findsNothing);
-  });
 }

@@ -57,4 +57,4 @@ flutter run \
 ## Notes
 
 - This example intentionally reflects the event-driven API as the primary usage path.
-- Legacy controller-heavy APIs are deprecated and retained only for migration compatibility.
+- The example includes both single-page Host+Tags and cross-route facade usage.

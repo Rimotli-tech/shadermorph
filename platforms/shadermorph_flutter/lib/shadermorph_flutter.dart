@@ -1,7 +1,5 @@
 // Export the data models
 export 'src/models.dart';
-export 'src/controller.dart';
-export 'src/navigation.dart';
 export 'src/cross_route.dart';
 export 'src/transition_config.dart';
 

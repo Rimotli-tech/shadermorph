@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import 'coordinator.dart';
-import 'controller.dart';
 import 'models.dart';
 import 'runtime_config.dart';
 import 'tracker.dart';
@@ -21,14 +20,13 @@ enum CrossRouteMorphState {
   disposed,
 }
 
-@Deprecated('Use ShaderMorph.tag(...) facade.')
-class MorphTag extends StatefulWidget {
+class CrossRouteMorphTag extends StatefulWidget {
   final String id;
   final MorphShadowCapturePolicy shadowCapturePolicy;
   final Widget? captureChild;
   final Widget child;
 
-  const MorphTag({
+  const CrossRouteMorphTag({
     super.key,
     required this.id,
     this.shadowCapturePolicy = MorphShadowCapturePolicy.include,
@@ -37,10 +35,10 @@ class MorphTag extends StatefulWidget {
   });
 
   @override
-  State<MorphTag> createState() => _MorphTagState();
+  State<CrossRouteMorphTag> createState() => _CrossRouteMorphTagState();
 }
 
-class _MorphTagState extends State<MorphTag> {
+class _CrossRouteMorphTagState extends State<CrossRouteMorphTag> {
   final GlobalKey _paintKey = GlobalKey();
   static const List<double> _transparentColorMatrix = <double>[
     1.0,
@@ -72,7 +70,7 @@ class _MorphTagState extends State<MorphTag> {
   }
 
   @override
-  void didUpdateWidget(covariant MorphTag oldWidget) {
+  void didUpdateWidget(covariant CrossRouteMorphTag oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.id != widget.id) {
       MorphTagRegistry.instance.unregister(oldWidget.id, _paintKey);
@@ -93,7 +91,7 @@ class _MorphTagState extends State<MorphTag> {
       builder: (context, hiddenTags, _) {
         return ValueListenableBuilder<Set<String>>(
           valueListenable: MorphTagRegistry.instance.hiddenTagIds,
-          builder: (context, hiddenTagIds, __) {
+          builder: (context, hiddenTagIds, _) {
             final hidden =
                 hiddenTags.contains(_paintKey) ||
                 hiddenTagIds.contains(widget.id);
@@ -265,8 +263,7 @@ class CrossRouteMorphSessionStore {
   }
 }
 
-@Deprecated('Use ShaderMorph.push(...) and ShaderMorph.reverseAndPop(...).')
-class CrossRouteMorphController extends ChangeNotifier {
+class ShaderMorphCrossRouteEngine extends ChangeNotifier {
   final Duration duration;
   final MorphTransitionConfig transitionConfig;
   final MorphShadowCapturePolicy shadowCapturePolicy;
@@ -283,7 +280,7 @@ class CrossRouteMorphController extends ChangeNotifier {
   Ticker? _ticker;
   _CrossRouteVisualState? _visualState;
 
-  CrossRouteMorphController({
+  ShaderMorphCrossRouteEngine({
     this.duration = const Duration(milliseconds: 800),
     this.transitionConfig = const MorphTransitionConfig(),
     this.shadowCapturePolicy = MorphShadowCapturePolicy.include,
@@ -770,58 +767,6 @@ class CrossRouteMorphController extends ChangeNotifier {
     _removeOverlay();
     _session.clear();
     super.dispose();
-  }
-}
-
-@Deprecated('Use ShaderMorph.push(...) and ShaderMorph.reverseAndPop(...).')
-class CrossRouteMorphPopHandler extends StatefulWidget {
-  final CrossRouteMorphController controller;
-  final String tagId;
-  final Widget child;
-  final Duration reverseTimeout;
-  final bool fallbackPopOnFailure;
-
-  const CrossRouteMorphPopHandler({
-    super.key,
-    required this.controller,
-    required this.tagId,
-    required this.child,
-    this.reverseTimeout = const Duration(milliseconds: 1500),
-    this.fallbackPopOnFailure = true,
-  });
-
-  @override
-  State<CrossRouteMorphPopHandler> createState() =>
-      _CrossRouteMorphPopHandlerState();
-}
-
-class _CrossRouteMorphPopHandlerState extends State<CrossRouteMorphPopHandler> {
-  bool _handling = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return PopScope(
-      canPop: !widget.controller.canReverse(widget.tagId),
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop || _handling) return;
-        _handling = true;
-        final navigator = Navigator.of(context);
-        try {
-          final started = await widget.controller.playReverseDuringPop(
-            context: context,
-            tagId: widget.tagId,
-            result: result,
-            timeout: widget.reverseTimeout,
-          );
-          if (!started && widget.fallbackPopOnFailure && navigator.mounted) {
-            navigator.maybePop(result);
-          }
-        } finally {
-          _handling = false;
-        }
-      },
-      child: widget.child,
-    );
   }
 }
 

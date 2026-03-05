@@ -2,25 +2,25 @@
 
 Event-driven GPU morph transitions for single-page and cross-route flows.
 
-## Current Scope
+## Current API
 
-- DX simplification is the active workstream (unified, event-driven API).
-- Protocol-V2 is the default renderer.
-- Style expansion is in segmented rollout (L1 currently adds `liquid` only).
-
-## Current API Priority
-
-Primary path (recommended):
+Single-page:
 - `ShaderMorphHost`
 - `ShaderMorphTag`
 - `ShaderMorphHost.of(context).forwardByTag(...)`
 - `ShaderMorphHost.of(context).reverseByTag(...)`
+
+Cross-route:
 - `ShaderMorph.tag(...)`
 - `ShaderMorph.push(...)`
 - `ShaderMorph.reverseAndPop(...)`
 
-Legacy path:
-- Deprecated compatibility APIs remain temporarily for migration only.
+Config:
+- `MorphTransitionConfig`
+- `MorphInterpolation`
+- `MorphShaderStyle`
+- `MorphShadowCapturePolicy`
+- `BackPopMode`
 
 ## Quickstart (Single-Page)
 
@@ -68,34 +68,12 @@ ShaderMorphTag(
 )
 ```
 
-Host behavior:
-- `ShaderMorphHost` owns animation lifecycle, snapshot capture, overlay rendering, and endpoint hide/unhide.
-- Phase model:
-  - Initial: source visible, destination hidden.
-  - `forwardByTag(id)`: both endpoints are hidden while overlay animates; completion lands at destination visible.
-  - `reverseByTag(id)`: both endpoints are hidden while overlay animates; completion lands at source visible.
-- If shader runtime is unavailable on a platform, host applies an instant phase swap fallback instead of no-op.
-
-### Legacy Single-Page API (Deprecated)
-
-`ShaderMorph(source: ..., destination: ...)` and `ShaderMorphHandle` remain available in the migration window, but new single-page integrations should use host + tags.
-
-### Legacy Trigger Modes
-
-- `ShaderMorphTriggerMode.manual`
-- `ShaderMorphTriggerMode.tapToggle`
-- `ShaderMorphTriggerMode.tapForward`
-- `ShaderMorphTriggerMode.tapReverse`
-- `ShaderMorphTriggerMode.onBuildForward`
-
-### Legacy Back Behavior
-
-- `BackPopMode.reverseThenPop` (default)
-- `BackPopMode.immediatePopReset`
+Phase behavior:
+- Initial: source visible, destination hidden.
+- `forwardByTag(id)`: both endpoints hidden during overlay animation; destination visible on completion.
+- `reverseByTag(id)`: both endpoints hidden during overlay animation; source visible on completion.
 
 ## Quickstart (Cross-Route)
-
-Tag both endpoints with the same `tagId`, then use `ShaderMorph.push`.
 
 ```dart
 // Source page endpoint
@@ -121,51 +99,22 @@ ShaderMorph.tag(id: 'card_tag', child: destinationCard)
 await ShaderMorph.reverseAndPop(context, tagId: 'card_tag');
 ```
 
-Cross-route lifecycle note:
-- Prefer `ShaderMorph.push(...)` for orchestration so source capture, route push, and destination capture stay in one deterministic flow.
-- Keep `suppressTransition: true` unless you intentionally want visible route motion.
-- Cross-route endpoint visibility is host-managed to prevent destination first-frame flash while preserving texture capture.
-
-## Transition Config
-
-`MorphTransitionConfig` controls interpolation and style:
-
-- Interpolation:
-  - `MorphInterpolation.linear`
-  - `MorphInterpolation.easeIn`
-  - `MorphInterpolation.easeOut`
-  - `MorphInterpolation.easeInOut`
-  - `MorphInterpolation.smoothStep`
-- Styles:
-  - `MorphShaderStyle.classic`
-  - `MorphShaderStyle.soft`
-  - `MorphShaderStyle.ripple`
-  - `MorphShaderStyle.liquid`
-
-## Old -> New API Mapping
-
-- `ShaderMorphController + await controller.forward()` -> `ShaderMorphHost.of(context).forwardByTag(id)` or explicit tag trigger
-- `ShaderMorph(source:..., destination:...)` -> `ShaderMorphHost(child: ...)` + `ShaderMorphTag(role: ...)`
-- `ShaderMorphPopHandler` -> built into `ShaderMorph(backPopMode: ...)`
-- `CrossRouteMorphController.startToRoute(...)` -> `ShaderMorph.push(...)`
-- `MorphTag(...)` -> `ShaderMorph.tag(...)`
-- `controller.playReverseDuringPop(...)` -> `ShaderMorph.reverseAndPop(...)`
-
-## Breaking-Change Migration Note
-
-The event-driven facade is the primary API. Legacy controller-heavy APIs remain available only for the migration window and are deprecated.
+Cross-route lifecycle notes:
+- Use `ShaderMorph.push(...)` for deterministic orchestration.
+- Keep `suppressTransition: true` unless route motion is intentional.
+- Destination first-frame flash is suppressed while preserving capture-ready textures.
 
 ## Protocol-V2 Runtime
 
 Protocol-V2 is the default for single-page and cross-route rendering.
 
-Emergency fallback to legacy V1 (temporary):
+Emergency fallback to V1:
 
 ```bash
 flutter run --dart-define=SHADERMORPH_FORCE_V1_RENDER=true
 ```
 
-Optional V2 shadow bind while V1 fallback is active:
+Optional V2 shadow bind while V1 is forced:
 
 ```bash
 flutter run \

@@ -3,27 +3,37 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shadermorph_flutter/shadermorph_flutter.dart';
 
 void main() {
-  testWidgets(
-    'ShaderMorph can be used without explicitly passing a controller',
-    (WidgetTester tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: ShaderMorph(
-              source: Text('source'),
-              destination: Text('destination'),
+  testWidgets('ShaderMorphHost can be mounted with tag endpoints', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: ShaderMorphHost(
+          child: Scaffold(
+            body: Column(
+              children: [
+                ShaderMorphTag(
+                  id: 'a',
+                  role: ShaderMorphRole.source,
+                  child: Text('source'),
+                ),
+                ShaderMorphTag(
+                  id: 'a',
+                  role: ShaderMorphRole.destination,
+                  child: Text('destination'),
+                ),
+              ],
             ),
           ),
         ),
-      );
+      ),
+    );
 
-      expect(find.byType(ShaderMorph), findsOneWidget);
-      final morph = tester.widget<ShaderMorph>(find.byType(ShaderMorph));
-      expect(morph.shadowCapturePolicy, MorphShadowCapturePolicy.exclude);
-    },
-  );
+    expect(find.byType(ShaderMorphHost), findsOneWidget);
+    expect(find.byType(ShaderMorphTag), findsNWidgets(2));
+  });
 
-  testWidgets('ShaderMorph.tag returns tag widget for cross-route endpoint', (
+  testWidgets('ShaderMorph.tag returns cross-route tag widget', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -35,19 +45,10 @@ void main() {
     );
 
     expect(find.text('tagged'), findsOneWidget);
-    final tag = tester.widget<MorphTag>(find.byType(MorphTag));
-    expect(tag.shadowCapturePolicy, MorphShadowCapturePolicy.exclude);
-  });
-
-  testWidgets('ShaderMorphHandle.of throws when no ShaderMorph ancestor', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: Text('no morph'))),
+    final tag = tester.widget<CrossRouteMorphTag>(
+      find.byType(CrossRouteMorphTag),
     );
-
-    final context = tester.element(find.text('no morph'));
-    expect(() => ShaderMorphHandle.of(context), throwsFlutterError);
+    expect(tag.shadowCapturePolicy, MorphShadowCapturePolicy.exclude);
   });
 
   testWidgets('ShaderMorph.push returns false when no tagged source exists', (

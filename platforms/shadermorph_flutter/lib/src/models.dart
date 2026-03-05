@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 enum MorphShadowCapturePolicy { exclude, include }
 
+enum MorphDirection { forward, reverse }
+
 /// Holds the visual and spatial state of a widget at the moment of capture.
 class MorphSnapshot {
   final ui.Image image;

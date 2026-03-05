@@ -1,5 +1,19 @@
 ## Unreleased
 
+- Breaking cleanup:
+  - Removed legacy single-page widget path (`ShaderMorph` as layout-owner widget).
+  - Removed controller-centric legacy APIs:
+    - `ShaderMorphController`
+    - `ShaderMorphPopHandler`
+    - `ShaderMorphRouteBridge`
+    - `buildMorphRoute(...)`
+    - `CrossRouteMorphController`
+    - `CrossRouteMorphPopHandler`
+  - Removed exports of deleted legacy modules.
+  - Replaced deprecated cross-route class names with non-deprecated equivalents:
+    - `MorphTag` -> `CrossRouteMorphTag`
+    - `CrossRouteMorphController` -> `ShaderMorphCrossRouteEngine`
+- Analyzer cleanup complete (`dart analyze` reports zero issues).
 - Added single-page Host + Tags API:
   - `ShaderMorphHost`
   - `ShaderMorphTag`
@@ -13,7 +27,7 @@
   - forward completion lands destination-visible; reverse completion lands source-visible
 - Added single-page graceful fallback when shader runtime is unavailable (instant phase swap instead of silent no-op).
 - Updated example app to use host-driven tag morphing.
-- Marked `ShaderMorph(source:..., destination:...)` as legacy single-page path in docs.
+- `ShaderMorph` now serves as static cross-route facade (`tag/push/reverseAndPop`) only.
 - Added cross-route destination anti-flash handling that preserves capture-ready textures.
 - L1 style segment: added `MorphShaderStyle.liquid` (Protocol-V2 style index `3`).
 - Liquid style now applies visible silhouette deformation (hybrid blob + controlled spill) rather than rectangle-only internal distortion.
