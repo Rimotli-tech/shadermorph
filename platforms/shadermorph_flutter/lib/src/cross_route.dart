@@ -8,6 +8,7 @@ import 'package:flutter/scheduler.dart';
 import 'coordinator.dart';
 import 'models.dart';
 import 'runtime_config.dart';
+import 'shader_program_cache.dart';
 import 'tracker.dart';
 import 'transition_config.dart';
 
@@ -251,12 +252,14 @@ class CrossRouteMorphSessionStore {
   bool hasSessionFor(String id) => source != null && tagId == id;
 
   void setSource({required String id, required MorphSnapshot snapshot}) {
+    source?.dispose();
     tagId = id;
     source = snapshot;
     nextToken();
   }
 
   void clear() {
+    source?.dispose();
     tagId = null;
     source = null;
     nextToken();
@@ -323,8 +326,10 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
     if (program == null || !overlayState.mounted) return false;
 
     _session.setSource(id: tagId, snapshot: sourceSnapshot);
+    MorphSnapshot? transientDestination;
     final expectedToken = _session.token;
     GlobalKey? destinationKey;
+    var success = false;
     try {
       // Hide source endpoint before route push to avoid double-draw on source page.
       _registry.setHiddenForKey(sourceKey, hidden: true);
@@ -359,6 +364,7 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
         _setState(CrossRouteMorphState.idle);
         return false;
       }
+      transientDestination = destinationSnapshot;
 
       _registry.setHiddenForKey(destinationKey, hidden: true);
       _setState(CrossRouteMorphState.animatingForward);
@@ -373,13 +379,18 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
             ? CrossRouteMorphState.atDestination
             : CrossRouteMorphState.idle,
       );
-      return completed;
+      success = completed;
+      return success;
     } finally {
       _removeOverlay();
       _registry.setHiddenForId(tagId, hidden: false);
       _registry.setHiddenForKey(sourceKey, hidden: false);
       if (destinationKey != null) {
         _registry.setHiddenForKey(destinationKey, hidden: false);
+      }
+      transientDestination?.dispose();
+      if (!success) {
+        _session.clear();
       }
     }
   }
@@ -419,6 +430,7 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
       return ok;
     } finally {
       _registry.setHiddenForKey(destinationKey, hidden: false);
+      destination.dispose();
     }
   }
 
@@ -460,6 +472,7 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
       return ok;
     } finally {
       _registry.setHiddenForKey(destinationKey, hidden: false);
+      currentDestination.dispose();
     }
   }
 
@@ -519,6 +532,7 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
       ).timeout(timeout, onTimeout: () => false);
     } finally {
       _removeOverlay();
+      destinationSnapshot.dispose();
       _registry.setHiddenForId(tagId, hidden: false);
       _registry.setHiddenForKey(destinationKey, hidden: false);
       if (sourceKey != null) {
@@ -558,20 +572,22 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
     if (program == null) return false;
     if (overlayState.mounted == false) return false;
 
-    _showOverlay(
-      overlayState: overlayState,
-      program: program,
-      source: source,
-      destination: destination,
-      direction: direction,
-      progress: 0.0,
-    );
-    final completed = await _animateOverlay(
-      direction: direction,
-      expectedToken: expectedToken,
-    );
-    _removeOverlay();
-    return completed;
+    try {
+      _showOverlay(
+        overlayState: overlayState,
+        program: program,
+        source: source,
+        destination: destination,
+        direction: direction,
+        progress: 0.0,
+      );
+      return await _animateOverlay(
+        direction: direction,
+        expectedToken: expectedToken,
+      );
+    } finally {
+      _removeOverlay();
+    }
   }
 
   void _finishAnimation(bool success, Completer<bool> completer) {
@@ -684,36 +700,39 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
   }) async {
     final sw = Stopwatch()..start();
     MorphSnapshot? previous;
-    MorphSnapshot? latest;
     var stableFrames = 0;
-    while (sw.elapsed < timeout && _state != CrossRouteMorphState.disposed) {
-      await SchedulerBinding.instance.endOfFrame;
-      final snapshot = await _registry.captureByKey(
-        key,
-        options: _captureOptions,
-      );
-      if (snapshot != null) {
-        latest = snapshot;
-        if (previous != null &&
-            _isRectStable(
-              previous.rect,
-              snapshot.rect,
-              epsilon: rectEpsilonPx,
-            )) {
-          stableFrames += 1;
+    try {
+      while (sw.elapsed < timeout && _state != CrossRouteMorphState.disposed) {
+        await SchedulerBinding.instance.endOfFrame;
+        final snapshot = await _registry.captureByKey(
+          key,
+          options: _captureOptions,
+        );
+        if (snapshot != null) {
+          final isStable =
+              previous != null &&
+              _isRectStable(
+                previous.rect,
+                snapshot.rect,
+                epsilon: rectEpsilonPx,
+              );
+          stableFrames = isStable ? stableFrames + 1 : 1;
+          if (stableFrames >= consecutiveStableFrames) {
+            previous?.dispose();
+            previous = null;
+            return snapshot;
+          }
+          previous?.dispose();
+          previous = snapshot;
         } else {
-          stableFrames = 1;
+          stableFrames = 0;
         }
-        previous = snapshot;
-        if (stableFrames >= consecutiveStableFrames) {
-          return latest;
-        }
-      } else {
-        stableFrames = 0;
+        await Future<void>.delayed(const Duration(milliseconds: 16));
       }
-      await Future<void>.delayed(const Duration(milliseconds: 16));
+    } finally {
+      previous?.dispose();
     }
-    return latest;
+    return null;
   }
 
   bool _isRectStable(Rect a, Rect b, {required double epsilon}) {
@@ -726,17 +745,12 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
   Future<ui.FragmentProgram?> _loadProgram() async {
     if (_program != null) return _program;
     try {
-      _v1Program = await ui.FragmentProgram.fromAsset(
-        'packages/shadermorph_flutter/shaders/shader_engine.frag',
-      );
-      ui.FragmentProgram? v2Program;
-      try {
-        v2Program = await ui.FragmentProgram.fromAsset(
-          'packages/shadermorph_flutter/shaders/shader_engine_v2.frag',
-        );
-      } catch (_) {
-        // Keep rendering available via V1 fallback if V2 cannot load.
+      final bundle = await ShaderMorphProgramCache.loadOrGet();
+      if (bundle == null) {
+        return null;
       }
+      _v1Program = bundle.v1Program;
+      final v2Program = bundle.v2Program;
 
       final config = MorphRuntimeConfig.current;
       maybeLogRuntimeDeprecations(config);
@@ -781,6 +795,7 @@ class _CrossRouteMorphPainter extends CustomPainter {
   final MorphSnapshot destination;
   final double progress;
   final MorphDirection direction;
+  static const double _paintBleedPx = 16.0;
 
   _CrossRouteMorphPainter({
     required this.shader,
@@ -823,7 +838,11 @@ class _CrossRouteMorphPainter extends CustomPainter {
       );
       v2RenderShader!.setImageSampler(0, source.image);
       v2RenderShader!.setImageSampler(1, destination.image);
-      canvas.drawRect(Offset.zero & size, Paint()..shader = v2RenderShader);
+      final paintRegion = _computePaintRegion(size);
+      if (paintRegion.isEmpty) {
+        return;
+      }
+      canvas.drawRect(paintRegion, Paint()..shader = v2RenderShader);
       return;
     }
 
@@ -837,7 +856,18 @@ class _CrossRouteMorphPainter extends CustomPainter {
       time: shapedProgress * 6.28,
       progress: shapedProgress,
     );
-    canvas.drawRect(Offset.zero & size, Paint()..shader = fallbackShader);
+    final paintRegion = _computePaintRegion(size);
+    if (paintRegion.isEmpty) {
+      return;
+    }
+    canvas.drawRect(paintRegion, Paint()..shader = fallbackShader);
+  }
+
+  Rect _computePaintRegion(Size viewportSize) {
+    final union = source.rect.expandToInclude(destination.rect);
+    final expanded = union.inflate(_paintBleedPx);
+    final viewport = Offset.zero & viewportSize;
+    return expanded.intersect(viewport);
   }
 
   @override

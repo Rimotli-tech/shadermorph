@@ -7,6 +7,7 @@ import '../tracker.dart';
 import '../coordinator.dart';
 import '../cross_route.dart';
 import '../runtime_config.dart';
+import '../shader_program_cache.dart';
 import '../transition_config.dart';
 
 enum ShaderMorphRole { source, destination }
@@ -297,16 +298,18 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
         ? pair.destination
         : pair.source;
     final hideKeys = <GlobalKey>{pair.source.key, pair.destination.key};
+    MorphSnapshot? sourceSnapshot;
+    MorphSnapshot? destinationSnapshot;
 
     var success = false;
     try {
-      final sourceSnapshot = await MorphTracker.capture(
+      sourceSnapshot = await MorphTracker.capture(
         sourceEndpoint.key,
         options: MorphCaptureOptions(
           shadowPolicy: sourceEndpoint.shadowCapturePolicy,
         ),
       );
-      final destinationSnapshot = await MorphTracker.capture(
+      destinationSnapshot = await MorphTracker.capture(
         destinationEndpoint.key,
         options: MorphCaptureOptions(
           shadowPolicy: destinationEndpoint.shadowCapturePolicy,
@@ -321,6 +324,8 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
         source: sourceSnapshot,
         destination: destinationSnapshot,
       );
+      sourceSnapshot = null;
+      destinationSnapshot = null;
       _animating = true;
       _showOverlay();
       await _controller.forward(from: 0.0);
@@ -341,20 +346,20 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
           visible: direction == MorphDirection.forward,
         );
       }
+      sourceSnapshot?.dispose();
+      destinationSnapshot?.dispose();
     }
   }
 
   Future<void> _loadShader() async {
     try {
-      final v1Prog = await ui.FragmentProgram.fromAsset(
-        'packages/shadermorph_flutter/shaders/shader_engine.frag',
-      );
-      ui.FragmentProgram? v2Prog;
-      try {
-        v2Prog = await ui.FragmentProgram.fromAsset(
-          'packages/shadermorph_flutter/shaders/shader_engine_v2.frag',
-        );
-      } catch (_) {}
+      final bundle = await ShaderMorphProgramCache.loadOrGet();
+      if (bundle == null) {
+        debugPrint('ShaderMorphHost: Failed to load shader.');
+        return;
+      }
+      final v1Prog = bundle.v1Program;
+      final v2Prog = bundle.v2Program;
 
       final config = MorphRuntimeConfig.current;
       maybeLogRuntimeDeprecations(config);
@@ -419,6 +424,7 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
   void _cleanupTransition() {
     _overlayEntry?.remove();
     _overlayEntry = null;
+    _snapshot?.dispose();
     _snapshot = null;
     _controller.stop();
     _controller.reset();
@@ -627,6 +633,11 @@ class ShaderMorph {
     );
   }
 
+  /// Preloads shader programs to reduce first-use compile jank.
+  static Future<void> prewarm() async {
+    await ShaderMorphProgramCache.prewarm();
+  }
+
   static Future<bool> push({
     required BuildContext context,
     required String tagId,
@@ -786,6 +797,7 @@ class _InternalMorphPainter extends CustomPainter {
   final MorphPairSnapshot snapshot;
   final double time;
   final double progress;
+  static const double _paintBleedPx = 16.0;
 
   _InternalMorphPainter({
     required this.shader,
@@ -827,7 +839,11 @@ class _InternalMorphPainter extends CustomPainter {
       );
       v2RenderShader!.setImageSampler(0, snapshot.source.image);
       v2RenderShader!.setImageSampler(1, snapshot.destination.image);
-      canvas.drawRect(Offset.zero & size, Paint()..shader = v2RenderShader);
+      final paintRegion = _computePaintRegion(size);
+      if (paintRegion.isEmpty) {
+        return;
+      }
+      canvas.drawRect(paintRegion, Paint()..shader = v2RenderShader);
       return;
     }
 
@@ -841,7 +857,20 @@ class _InternalMorphPainter extends CustomPainter {
       time: time,
       progress: shapedProgress,
     );
-    canvas.drawRect(Offset.zero & size, Paint()..shader = fallbackShader);
+    final paintRegion = _computePaintRegion(size);
+    if (paintRegion.isEmpty) {
+      return;
+    }
+    canvas.drawRect(paintRegion, Paint()..shader = fallbackShader);
+  }
+
+  Rect _computePaintRegion(Size viewportSize) {
+    final union = snapshot.source.rect.expandToInclude(
+      snapshot.destination.rect,
+    );
+    final expanded = union.inflate(_paintBleedPx);
+    final viewport = Offset.zero & viewportSize;
+    return expanded.intersect(viewport);
   }
 
   @override
