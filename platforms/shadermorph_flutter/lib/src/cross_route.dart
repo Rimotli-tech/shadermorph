@@ -69,15 +69,22 @@ class _MorphTagState extends State<MorphTag> {
     return ValueListenableBuilder<Set<GlobalKey>>(
       valueListenable: MorphTagRegistry.instance.hiddenTags,
       builder: (context, hiddenTags, _) {
-        final hidden = hiddenTags.contains(_paintKey);
-        return Opacity(
-          opacity: hidden ? 0.0 : 1.0,
-          child: ShaderMorphCaptureLayer(
-            boundaryKey: _paintKey,
-            shadowCapturePolicy: widget.shadowCapturePolicy,
-            captureChild: widget.captureChild,
-            child: widget.child,
-          ),
+        return ValueListenableBuilder<Set<String>>(
+          valueListenable: MorphTagRegistry.instance.hiddenTagIds,
+          builder: (context, hiddenTagIds, __) {
+            final hidden =
+                hiddenTags.contains(_paintKey) ||
+                hiddenTagIds.contains(widget.id);
+            return Opacity(
+              opacity: hidden ? 0.0 : 1.0,
+              child: ShaderMorphCaptureLayer(
+                boundaryKey: _paintKey,
+                shadowCapturePolicy: widget.shadowCapturePolicy,
+                captureChild: widget.captureChild,
+                child: widget.child,
+              ),
+            );
+          },
         );
       },
     );
@@ -92,6 +99,9 @@ class MorphTagRegistry {
   final Map<String, List<GlobalKey>> _tags = <String, List<GlobalKey>>{};
   final ValueNotifier<Set<GlobalKey>> hiddenTags =
       ValueNotifier<Set<GlobalKey>>(<GlobalKey>{});
+  final ValueNotifier<Set<String>> hiddenTagIds = ValueNotifier<Set<String>>(
+    <String>{},
+  );
 
   void register(String id, GlobalKey key) {
     final keys = _tags.putIfAbsent(id, () => <GlobalKey>[]);
@@ -165,10 +175,23 @@ class MorphTagRegistry {
     }
   }
 
+  void setHiddenForId(String id, {required bool hidden}) {
+    final updated = Set<String>.from(hiddenTagIds.value);
+    if (hidden) {
+      updated.add(id);
+    } else {
+      updated.remove(id);
+    }
+    if (!setEquals(updated, hiddenTagIds.value)) {
+      hiddenTagIds.value = updated;
+    }
+  }
+
   @visibleForTesting
   void clearForTesting() {
     _tags.clear();
     hiddenTags.value = <GlobalKey>{};
+    hiddenTagIds.value = <String>{};
   }
 
   GlobalKey? _latestMountedKey(String id) {
@@ -276,6 +299,8 @@ class CrossRouteMorphController extends ChangeNotifier {
     try {
       // Hide source endpoint before route push to avoid double-draw on source page.
       _registry.setHiddenForKey(sourceKey, hidden: true);
+      // Hide any same-id endpoint immediately on route mount to avoid first-frame flash.
+      _registry.setHiddenForId(tagId, hidden: true);
       _setState(CrossRouteMorphState.capturedSource);
 
       _showOverlay(
@@ -297,6 +322,8 @@ class CrossRouteMorphController extends ChangeNotifier {
         _setState(CrossRouteMorphState.idle);
         return false;
       }
+      // Release ID-level hide before capture so destination texture is not blank.
+      _registry.setHiddenForId(tagId, hidden: false);
       final destinationSnapshot = await _waitForStableSnapshotByKey(
         destinationKey,
         timeout: const Duration(seconds: 3),
@@ -322,6 +349,7 @@ class CrossRouteMorphController extends ChangeNotifier {
       return completed;
     } finally {
       _removeOverlay();
+      _registry.setHiddenForId(tagId, hidden: false);
       _registry.setHiddenForKey(sourceKey, hidden: false);
       if (destinationKey != null) {
         _registry.setHiddenForKey(destinationKey, hidden: false);
@@ -437,6 +465,7 @@ class CrossRouteMorphController extends ChangeNotifier {
     final expectedToken = _session.token;
 
     _registry.setHiddenForKey(destinationKey, hidden: true);
+    _registry.setHiddenForId(tagId, hidden: true);
     if (sourceKey != null) {
       _registry.setHiddenForKey(sourceKey, hidden: true);
     }
@@ -463,6 +492,7 @@ class CrossRouteMorphController extends ChangeNotifier {
       ).timeout(timeout, onTimeout: () => false);
     } finally {
       _removeOverlay();
+      _registry.setHiddenForId(tagId, hidden: false);
       _registry.setHiddenForKey(destinationKey, hidden: false);
       if (sourceKey != null) {
         _registry.setHiddenForKey(sourceKey, hidden: false);
