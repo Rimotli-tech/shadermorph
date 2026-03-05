@@ -116,6 +116,8 @@ class _ShaderMorphHostControllerImpl implements ShaderMorphHostController {
   final _ShaderMorphHostState _state;
   final ValueNotifier<Set<GlobalKey>> hiddenKeys =
       ValueNotifier<Set<GlobalKey>>(<GlobalKey>{});
+  final ValueNotifier<Map<String, bool>> destinationVisibleByTag =
+      ValueNotifier<Map<String, bool>>(<String, bool>{});
 
   _ShaderMorphHostControllerImpl(this._state);
 
@@ -157,6 +159,19 @@ class _ShaderMorphHostControllerImpl implements ShaderMorphHostController {
   void unhideKey(GlobalKey key) {
     final next = Set<GlobalKey>.from(hiddenKeys.value)..remove(key);
     hiddenKeys.value = next;
+  }
+
+  bool isDestinationVisible(String id) =>
+      destinationVisibleByTag.value[id] ?? false;
+
+  void setDestinationVisible({required String id, required bool visible}) {
+    final next = Map<String, bool>.from(destinationVisibleByTag.value);
+    if (visible) {
+      next[id] = true;
+    } else {
+      next.remove(id);
+    }
+    destinationVisibleByTag.value = next;
   }
 }
 
@@ -285,13 +300,52 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
     required String id,
     required MorphDirection direction,
   }) async {
-    if (!mounted || _animating) return false;
+    if (!mounted) {
+      debugPrint('ShaderMorphHost: play ignored; host is not mounted.');
+      return false;
+    }
+    if (_animating) {
+      debugPrint('ShaderMorphHost: play ignored; animation already active.');
+      return false;
+    }
+    final destinationVisible = _hostController.isDestinationVisible(id);
+    if (direction == MorphDirection.forward && destinationVisible) {
+      debugPrint(
+        'ShaderMorphHost: forward ignored for "$id"; destination already visible.',
+      );
+      return false;
+    }
+    if (direction == MorphDirection.reverse && !destinationVisible) {
+      debugPrint(
+        'ShaderMorphHost: reverse ignored for "$id"; source already visible.',
+      );
+      return false;
+    }
     final pair = _resolveStrictPair(id);
-    if (pair == null) return false;
+    if (pair == null) {
+      debugPrint(
+        'ShaderMorphHost: play failed for "$id"; unresolved tag pair.',
+      );
+      return false;
+    }
     if (_program == null) {
       await _loadShader();
     }
-    if (!mounted || _program == null) return false;
+    if (!mounted) {
+      debugPrint('ShaderMorphHost: play aborted after shader load; unmounted.');
+      return false;
+    }
+    if (_program == null) {
+      // Graceful fallback for platforms/devices where runtime shaders are unavailable.
+      debugPrint(
+        'ShaderMorphHost: shader unavailable; applying instant state swap for "$id".',
+      );
+      _hostController.setDestinationVisible(
+        id: id,
+        visible: direction == MorphDirection.forward,
+      );
+      return true;
+    }
 
     final sourceEndpoint = direction == MorphDirection.forward
         ? pair.source
@@ -330,12 +384,20 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
       await _controller.forward(from: 0.0);
       success = true;
       return true;
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint(
+        'ShaderMorphHost: play failed for "$id"; '
+        'capture/animation error: $error',
+      );
+      debugPrint('$stackTrace');
       return false;
     } finally {
       _cleanupTransition();
-      if (!success) {
-        _snapshot = null;
+      if (success) {
+        _hostController.setDestinationVisible(
+          id: id,
+          visible: direction == MorphDirection.forward,
+        );
       }
     }
   }
@@ -438,6 +500,7 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
   void dispose() {
     _cleanupTransition();
     _hostController.hiddenKeys.dispose();
+    _hostController.destinationVisibleByTag.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -468,6 +531,28 @@ class ShaderMorphTag extends StatefulWidget {
 class _ShaderMorphTagState extends State<ShaderMorphTag> {
   final GlobalKey _paintKey = GlobalKey();
   _ShaderMorphHostControllerImpl? _hostController;
+  static const List<double> _transparentColorMatrix = <double>[
+    1.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+  ];
 
   @override
   void didChangeDependencies() {
@@ -538,13 +623,33 @@ class _ShaderMorphTagState extends State<ShaderMorphTag> {
       captureChild: widget.captureChild,
       child: widget.child,
     );
-    final hiddenListenable = _hostController?.hiddenKeys;
-    if (hiddenListenable != null) {
-      content = ValueListenableBuilder<Set<GlobalKey>>(
-        valueListenable: hiddenListenable,
-        builder: (context, hiddenKeys, child) {
-          final hidden = hiddenKeys.contains(_paintKey);
-          return Opacity(opacity: hidden ? 0.0 : 1.0, child: child);
+    final controller = _hostController;
+    if (controller != null) {
+      content = AnimatedBuilder(
+        animation: Listenable.merge(<Listenable>[
+          controller.hiddenKeys,
+          controller.destinationVisibleByTag,
+        ]),
+        builder: (context, child) {
+          final hiddenByLifecycle = controller.hiddenKeys.value.contains(
+            _paintKey,
+          );
+          final destinationVisible = controller.isDestinationVisible(widget.id);
+          final hiddenByPhase = widget.role == ShaderMorphRole.destination
+              ? !destinationVisible
+              : destinationVisible;
+          final hidden = hiddenByLifecycle || hiddenByPhase;
+          if (!hidden) {
+            return child!;
+          }
+          return IgnorePointer(
+            child: ExcludeSemantics(
+              child: ColorFiltered(
+                colorFilter: const ColorFilter.matrix(_transparentColorMatrix),
+                child: child,
+              ),
+            ),
+          );
         },
         child: content,
       );
