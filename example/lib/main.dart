@@ -82,7 +82,7 @@ class _PageContent extends StatelessWidget {
             id: singlePageTagId,
             role: ShaderMorphRole.destination,
             trigger: ShaderMorphTrigger.onTapReverse,
-            child: const _DestinationRow(),
+            child: const _CircleMorphTarget(),
           ),
           const SizedBox(height: 16),
           _CrossRouteSourceCard(
@@ -102,6 +102,18 @@ class _PageContent extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _CircleMorphTarget extends StatelessWidget {
+  const _CircleMorphTarget();
+
+  @override
+  Widget build(BuildContext context) {
+    return CircleAvatar(
+      radius: 20,
+      backgroundImage: NetworkImage('https://i.pravatar.cc/150?u=tony'),
     );
   }
 }

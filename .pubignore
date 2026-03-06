@@ -1,0 +1,13 @@
+# Repository-only operational files
+AGENTS.md
+README.txt
+projectmap.md
+scripts/
+.vscode/
+.metadata
+
+# Generated outputs
+build/
+.dart_tool/
+coverage/
+.idea/

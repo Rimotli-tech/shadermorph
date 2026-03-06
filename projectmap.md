@@ -4,7 +4,7 @@ Status: Protocol-V2 is the default renderer. V1 remains as emergency fallback.
 
 ## Repository Structure
 
-- `docs/metadata_protocol_v2.md`
+- `doc/metadata_protocol_v2.md`
 - `platforms/shadermorph_flutter/`
   - `lib/shadermorph_flutter.dart`
   - `lib/src/widgets/morph_host.dart`
@@ -81,4 +81,4 @@ Determinism:
 - Shader overlap winner: lowest index first hit.
 
 Reference:
-- `docs/metadata_protocol_v2.md`
+- `doc/metadata_protocol_v2.md`

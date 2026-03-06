@@ -29,5 +29,5 @@ All metadata MUST be extracted in logical pixels then converted to physical pixe
 devicePixelRatio before normalization against u_resolution.
 
 ## 7. UNIFORM PACKING RULE (V2)
-The Flutter adapter MUST pack floats in the exact order specified by docs/metadata_protocol_v2.md.
+The Flutter adapter MUST pack floats in the exact order specified by doc/metadata_protocol_v2.md.
 Any deviation is considered a protocol break.
