@@ -2,38 +2,27 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shadermorph_flutter/src/transition_config.dart';
 
 void main() {
-  test('defaults are linear + classic', () {
+  test('defaults are linear + standard', () {
     const config = MorphTransitionConfig();
     expect(config.interpolation, MorphInterpolation.linear);
-    expect(config.shaderStyle, MorphShaderStyle.classic);
-    expect(config.shaderStyleIndex, 0);
+    expect(config.shaderStyle, MorphShaderStyle.standard);
+    expect(config.shaderStyleIndex, 1);
     expect(config.transformProgress(0.25), 0.25);
   });
 
-  test('style index mapping is stable', () {
+  test('style enum is frozen to standard', () {
     expect(
-      const MorphTransitionConfig(
-        shaderStyle: MorphShaderStyle.classic,
-      ).shaderStyleIndex,
-      0,
+      MorphShaderStyle.values,
+      equals(<MorphShaderStyle>[MorphShaderStyle.standard]),
     );
+  });
+
+  test('style index mapping remains pinned to old soft slot', () {
     expect(
       const MorphTransitionConfig(
-        shaderStyle: MorphShaderStyle.soft,
+        shaderStyle: MorphShaderStyle.standard,
       ).shaderStyleIndex,
       1,
-    );
-    expect(
-      const MorphTransitionConfig(
-        shaderStyle: MorphShaderStyle.ripple,
-      ).shaderStyleIndex,
-      2,
-    );
-    expect(
-      const MorphTransitionConfig(
-        shaderStyle: MorphShaderStyle.liquid,
-      ).shaderStyleIndex,
-      3,
     );
   });
 

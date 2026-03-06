@@ -41,19 +41,19 @@ class MorphSnapshot {
 }
 
 class MorphPairSnapshot {
-  final MorphSnapshot source;
+  final MorphSnapshot origin;
   final MorphSnapshot destination;
   bool _disposed = false;
 
-  MorphPairSnapshot({required this.source, required this.destination});
+  MorphPairSnapshot({required this.origin, required this.destination});
 
   bool get isDisposed => _disposed;
 
   void dispose() {
     if (_disposed) return;
     _disposed = true;
-    source.dispose();
-    if (!identical(source, destination)) {
+    origin.dispose();
+    if (!identical(origin, destination)) {
       destination.dispose();
     }
   }

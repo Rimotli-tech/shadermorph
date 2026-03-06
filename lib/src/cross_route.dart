@@ -14,7 +14,7 @@ import 'transition_config.dart';
 
 enum CrossRouteMorphState {
   idle,
-  capturedSource,
+  capturedOrigin,
   animatingForward,
   atDestination,
   animatingReverse,
@@ -239,7 +239,7 @@ class MorphTagRegistry {
 
 class CrossRouteMorphSessionStore {
   String? tagId;
-  MorphSnapshot? source;
+  MorphSnapshot? origin;
   int _token = 0;
 
   int nextToken() {
@@ -249,19 +249,19 @@ class CrossRouteMorphSessionStore {
 
   int get token => _token;
 
-  bool hasSessionFor(String id) => source != null && tagId == id;
+  bool hasSessionFor(String id) => origin != null && tagId == id;
 
-  void setSource({required String id, required MorphSnapshot snapshot}) {
-    source?.dispose();
+  void setOrigin({required String id, required MorphSnapshot snapshot}) {
+    origin?.dispose();
     tagId = id;
-    source = snapshot;
+    origin = snapshot;
     nextToken();
   }
 
   void clear() {
-    source?.dispose();
+    origin?.dispose();
     tagId = null;
-    source = null;
+    origin = null;
     nextToken();
   }
 }
@@ -312,36 +312,36 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
   }) async {
     if (_state == CrossRouteMorphState.disposed || isAnimating) return false;
 
-    final sourceKey = _registry.keyFor(tagId);
-    if (sourceKey == null) return false;
-    final sourceSnapshot = await _registry.captureByKey(
-      sourceKey,
+    final originKey = _registry.keyFor(tagId);
+    if (originKey == null) return false;
+    final originSnapshot = await _registry.captureByKey(
+      originKey,
       options: _captureOptions,
     );
-    if (sourceSnapshot == null) return false;
+    if (originSnapshot == null) return false;
     if (!context.mounted) return false;
     final navigator = Navigator.of(context);
     final overlayState = Overlay.of(context, rootOverlay: true);
     final program = await _loadProgram();
     if (program == null || !overlayState.mounted) return false;
 
-    _session.setSource(id: tagId, snapshot: sourceSnapshot);
+    _session.setOrigin(id: tagId, snapshot: originSnapshot);
     MorphSnapshot? transientDestination;
     final expectedToken = _session.token;
     GlobalKey? destinationKey;
     var success = false;
     try {
-      // Hide source endpoint before route push to avoid double-draw on source page.
-      _registry.setHiddenForKey(sourceKey, hidden: true);
+      // Hide origin endpoint before route push to avoid double-draw on source page.
+      _registry.setHiddenForKey(originKey, hidden: true);
       // Hide any same-id endpoint immediately on route mount to avoid first-frame flash.
       _registry.setHiddenForId(tagId, hidden: true);
-      _setState(CrossRouteMorphState.capturedSource);
+      _setState(CrossRouteMorphState.capturedOrigin);
 
       _showOverlay(
         overlayState: overlayState,
         program: program,
-        source: sourceSnapshot,
-        destination: sourceSnapshot,
+        source: originSnapshot,
+        destination: originSnapshot,
         direction: MorphDirection.forward,
         progress: 0.0,
       );
@@ -349,7 +349,7 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
       unawaited(navigator.push(route));
       destinationKey = await _waitForTargetKey(
         tagId,
-        excludedKey: sourceKey,
+        excludedKey: originKey,
         timeout: const Duration(seconds: 3),
       );
       if (destinationKey == null || _session.token != expectedToken) {
@@ -384,7 +384,7 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
     } finally {
       _removeOverlay();
       _registry.setHiddenForId(tagId, hidden: false);
-      _registry.setHiddenForKey(sourceKey, hidden: false);
+      _registry.setHiddenForKey(originKey, hidden: false);
       if (destinationKey != null) {
         _registry.setHiddenForKey(destinationKey, hidden: false);
       }
@@ -401,8 +401,8 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
   }) async {
     if (_state == CrossRouteMorphState.disposed || isAnimating) return false;
     if (!_session.hasSessionFor(tagId)) return false;
-    final source = _session.source;
-    if (source == null) return false;
+    final origin = _session.origin;
+    if (origin == null) return false;
     final destinationKey = _registry.keyFor(tagId);
     if (destinationKey == null) return false;
 
@@ -419,7 +419,7 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
     try {
       final ok = await _runOverlayAnimation(
         overlayState: overlayState,
-        source: source,
+        source: origin,
         destination: destination,
         direction: MorphDirection.forward,
         expectedToken: _session.token,
@@ -442,8 +442,8 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
     if (!_session.hasSessionFor(tagId)) return false;
     if (_state != CrossRouteMorphState.atDestination) return false;
 
-    final source = _session.source;
-    if (source == null) return false;
+    final origin = _session.origin;
+    if (origin == null) return false;
     final destinationKey = _registry.keyFor(tagId);
     if (destinationKey == null) return false;
     final currentDestination = await _registry.captureByKey(
@@ -460,13 +460,13 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
       final ok = await _runOverlayAnimation(
         overlayState: overlayState,
         source: currentDestination,
-        destination: source,
+        destination: origin,
         direction: MorphDirection.reverse,
         expectedToken: _session.token,
       );
       _setState(
         ok
-            ? CrossRouteMorphState.capturedSource
+            ? CrossRouteMorphState.capturedOrigin
             : CrossRouteMorphState.atDestination,
       );
       return ok;
@@ -485,8 +485,8 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
     if (_state == CrossRouteMorphState.disposed || isAnimating) return false;
     if (!_session.hasSessionFor(tagId)) return false;
     if (_state != CrossRouteMorphState.atDestination) return false;
-    final source = _session.source;
-    if (source == null) return false;
+    final origin = _session.origin;
+    if (origin == null) return false;
 
     final destinationKey = _registry.keyFor(tagId);
     if (destinationKey == null) return false;
@@ -501,13 +501,13 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
     if (program == null || !overlayState.mounted) return false;
     if (!context.mounted) return false;
     final navigator = Navigator.of(context);
-    final sourceKey = _registry.keyForExcluding(tagId, destinationKey);
+    final originKey = _registry.keyForExcluding(tagId, destinationKey);
     final expectedToken = _session.token;
 
     _registry.setHiddenForKey(destinationKey, hidden: true);
     _registry.setHiddenForId(tagId, hidden: true);
-    if (sourceKey != null) {
-      _registry.setHiddenForKey(sourceKey, hidden: true);
+    if (originKey != null) {
+      _registry.setHiddenForKey(originKey, hidden: true);
     }
     _setState(CrossRouteMorphState.animatingReverse);
 
@@ -517,7 +517,7 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
         overlayState: overlayState,
         program: program,
         source: destinationSnapshot,
-        destination: source,
+        destination: origin,
         direction: MorphDirection.reverse,
         progress: 0.0,
       );
@@ -535,12 +535,12 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
       destinationSnapshot.dispose();
       _registry.setHiddenForId(tagId, hidden: false);
       _registry.setHiddenForKey(destinationKey, hidden: false);
-      if (sourceKey != null) {
-        _registry.setHiddenForKey(sourceKey, hidden: false);
+      if (originKey != null) {
+        _registry.setHiddenForKey(originKey, hidden: false);
       }
       _setState(
         completed
-            ? CrossRouteMorphState.capturedSource
+            ? CrossRouteMorphState.capturedOrigin
             : CrossRouteMorphState.idle,
       );
     }

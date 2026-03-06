@@ -27,8 +27,8 @@ void main() {
                   children: [
                     ShaderMorphTag(
                       id: 'x',
-                      role: ShaderMorphRole.source,
-                      child: const Text('source'),
+                      role: ShaderMorphRole.origin,
+                      child: const Text('origin'),
                     ),
                     ElevatedButton(
                       onPressed: () => host.forwardByTag('x'),
@@ -49,7 +49,7 @@ void main() {
     expect(started, isFalse);
   });
 
-  testWidgets('forwardByTag returns false on duplicate mounted source tags', (
+  testWidgets('forwardByTag returns false on duplicate mounted origin tags', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -60,13 +60,13 @@ void main() {
               children: const [
                 ShaderMorphTag(
                   id: 'dup',
-                  role: ShaderMorphRole.source,
-                  child: Text('source-a'),
+                  role: ShaderMorphRole.origin,
+                  child: Text('origin-a'),
                 ),
                 ShaderMorphTag(
                   id: 'dup',
-                  role: ShaderMorphRole.source,
-                  child: Text('source-b'),
+                  role: ShaderMorphRole.origin,
+                  child: Text('origin-b'),
                 ),
                 ShaderMorphTag(
                   id: 'dup',
@@ -96,9 +96,9 @@ void main() {
               children: const [
                 ShaderMorphTag(
                   id: 't',
-                  role: ShaderMorphRole.source,
+                  role: ShaderMorphRole.origin,
                   trigger: ShaderMorphTrigger.onTapForward,
-                  child: Text('tap-source'),
+                  child: Text('tap-origin'),
                 ),
                 ShaderMorphTag(
                   id: 't',
@@ -112,9 +112,9 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('tap-source'));
+    await tester.tap(find.text('tap-origin'));
     await tester.pump();
-    expect(find.text('tap-source'), findsOneWidget);
+    expect(find.text('tap-origin'), findsOneWidget);
     expect(find.text('dest'), findsOneWidget);
   });
 }

@@ -10,7 +10,7 @@ import '../runtime_config.dart';
 import '../shader_program_cache.dart';
 import '../transition_config.dart';
 
-enum ShaderMorphRole { source, destination }
+enum ShaderMorphRole { origin, destination }
 
 enum ShaderMorphTrigger { none, onTapForward, onTapReverse }
 
@@ -46,15 +46,15 @@ class _TagEndpointEntry {
 }
 
 class _TagBuckets {
-  final List<_TagEndpointEntry> sources = <_TagEndpointEntry>[];
+  final List<_TagEndpointEntry> origins = <_TagEndpointEntry>[];
   final List<_TagEndpointEntry> destinations = <_TagEndpointEntry>[];
 }
 
 class _ResolvedTagPair {
-  final _TagEndpointEntry source;
+  final _TagEndpointEntry origin;
   final _TagEndpointEntry destination;
 
-  const _ResolvedTagPair({required this.source, required this.destination});
+  const _ResolvedTagPair({required this.origin, required this.destination});
 }
 
 class _ShaderMorphHostControllerImpl implements ShaderMorphHostController {
@@ -187,8 +187,8 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
     required MorphShadowCapturePolicy shadowCapturePolicy,
   }) {
     final bucket = _tags.putIfAbsent(id, () => _TagBuckets());
-    final target = role == ShaderMorphRole.source
-        ? bucket.sources
+    final target = role == ShaderMorphRole.origin
+        ? bucket.origins
         : bucket.destinations;
     if (target.any((entry) => identical(entry.key, key))) {
       return;
@@ -205,11 +205,11 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
   }) {
     final bucket = _tags[id];
     if (bucket == null) return;
-    final target = role == ShaderMorphRole.source
-        ? bucket.sources
+    final target = role == ShaderMorphRole.origin
+        ? bucket.origins
         : bucket.destinations;
     target.removeWhere((entry) => identical(entry.key, key));
-    if (bucket.sources.isEmpty && bucket.destinations.isEmpty) {
+    if (bucket.origins.isEmpty && bucket.destinations.isEmpty) {
       _tags.remove(id);
     }
     _hostController.unhideKey(key);
@@ -224,18 +224,18 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
   _ResolvedTagPair? _resolveStrictPair(String id) {
     final bucket = _tags[id];
     if (bucket == null) return null;
-    final mountedSources = _mountedEntries(bucket.sources);
+    final mountedOrigins = _mountedEntries(bucket.origins);
     final mountedDestinations = _mountedEntries(bucket.destinations);
-    if (mountedSources.length != 1 || mountedDestinations.length != 1) {
+    if (mountedOrigins.length != 1 || mountedDestinations.length != 1) {
       debugPrint(
-        'ShaderMorphHost: tag "$id" requires exactly one mounted source and '
-        'one mounted destination. Found source=${mountedSources.length}, '
+        'ShaderMorphHost: tag "$id" requires exactly one mounted origin and '
+        'one mounted destination. Found origin=${mountedOrigins.length}, '
         'destination=${mountedDestinations.length}.',
       );
       return null;
     }
     return _ResolvedTagPair(
-      source: mountedSources.single,
+      origin: mountedOrigins.single,
       destination: mountedDestinations.single,
     );
   }
@@ -261,7 +261,7 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
     }
     if (direction == MorphDirection.reverse && !destinationVisible) {
       debugPrint(
-        'ShaderMorphHost: reverse ignored for "$id"; source already visible.',
+        'ShaderMorphHost: reverse ignored for "$id"; origin already visible.',
       );
       return false;
     }
@@ -291,22 +291,22 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
       return true;
     }
 
-    final sourceEndpoint = direction == MorphDirection.forward
-        ? pair.source
+    final originEndpoint = direction == MorphDirection.forward
+        ? pair.origin
         : pair.destination;
     final destinationEndpoint = direction == MorphDirection.forward
         ? pair.destination
-        : pair.source;
-    final hideKeys = <GlobalKey>{pair.source.key, pair.destination.key};
-    MorphSnapshot? sourceSnapshot;
+        : pair.origin;
+    final hideKeys = <GlobalKey>{pair.origin.key, pair.destination.key};
+    MorphSnapshot? originSnapshot;
     MorphSnapshot? destinationSnapshot;
 
     var success = false;
     try {
-      sourceSnapshot = await MorphTracker.capture(
-        sourceEndpoint.key,
+      originSnapshot = await MorphTracker.capture(
+        originEndpoint.key,
         options: MorphCaptureOptions(
-          shadowPolicy: sourceEndpoint.shadowCapturePolicy,
+          shadowPolicy: originEndpoint.shadowCapturePolicy,
         ),
       );
       destinationSnapshot = await MorphTracker.capture(
@@ -321,10 +321,10 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
         _hostController.hideKey(key);
       }
       _snapshot = MorphPairSnapshot(
-        source: sourceSnapshot,
+        origin: originSnapshot,
         destination: destinationSnapshot,
       );
-      sourceSnapshot = null;
+      originSnapshot = null;
       destinationSnapshot = null;
       _animating = true;
       _showOverlay();
@@ -346,7 +346,7 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
           visible: direction == MorphDirection.forward,
         );
       }
-      sourceSnapshot?.dispose();
+      originSnapshot?.dispose();
       destinationSnapshot?.dispose();
     }
   }
@@ -816,7 +816,7 @@ class _InternalMorphPainter extends CustomPainter {
     final shapedProgress = transitionConfig.transformProgress(progress);
     final metadata = MorphCoordinator.buildSinglePairMetadataV2(
       logicalViewport: size,
-      sourceRect: snapshot.source,
+      sourceRect: snapshot.origin,
       targetRect: snapshot.destination,
       progress: shapedProgress,
       morphStyle: transitionConfig.shaderStyleIndex,
@@ -829,7 +829,7 @@ class _InternalMorphPainter extends CustomPainter {
         shader: v2ShadowShader!,
         metadata: metadata,
       );
-      v2ShadowShader!.setImageSampler(0, snapshot.source.image);
+      v2ShadowShader!.setImageSampler(0, snapshot.origin.image);
       v2ShadowShader!.setImageSampler(1, snapshot.destination.image);
     }
     if (useV2Render && v2RenderShader != null) {
@@ -837,7 +837,7 @@ class _InternalMorphPainter extends CustomPainter {
         shader: v2RenderShader!,
         metadata: metadata,
       );
-      v2RenderShader!.setImageSampler(0, snapshot.source.image);
+      v2RenderShader!.setImageSampler(0, snapshot.origin.image);
       v2RenderShader!.setImageSampler(1, snapshot.destination.image);
       final paintRegion = _computePaintRegion(size);
       if (paintRegion.isEmpty) {
@@ -852,7 +852,7 @@ class _InternalMorphPainter extends CustomPainter {
     MorphCoordinator.setUniforms(
       shader: fallbackShader,
       viewport: size,
-      sourceRect: snapshot.source,
+      sourceRect: snapshot.origin,
       targetRect: snapshot.destination,
       time: time,
       progress: shapedProgress,
@@ -865,7 +865,7 @@ class _InternalMorphPainter extends CustomPainter {
   }
 
   Rect _computePaintRegion(Size viewportSize) {
-    final union = snapshot.source.rect.expandToInclude(
+    final union = snapshot.origin.rect.expandToInclude(
       snapshot.destination.rect,
     );
     final expanded = union.inflate(_paintBleedPx);

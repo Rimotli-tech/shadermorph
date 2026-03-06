@@ -1,6 +1,6 @@
 enum MorphInterpolation { linear, easeIn, easeOut, easeInOut, smoothStep }
 
-enum MorphShaderStyle { classic, soft, ripple, liquid }
+enum MorphShaderStyle { standard }
 
 class MorphTransitionConfig {
   final MorphInterpolation interpolation;
@@ -8,7 +8,7 @@ class MorphTransitionConfig {
 
   const MorphTransitionConfig({
     this.interpolation = MorphInterpolation.linear,
-    this.shaderStyle = MorphShaderStyle.classic,
+    this.shaderStyle = MorphShaderStyle.standard,
   });
 
   double transformProgress(double progress) {
@@ -33,15 +33,6 @@ class MorphTransitionConfig {
   }
 
   int get shaderStyleIndex {
-    switch (shaderStyle) {
-      case MorphShaderStyle.classic:
-        return 0;
-      case MorphShaderStyle.soft:
-        return 1;
-      case MorphShaderStyle.ripple:
-        return 2;
-      case MorphShaderStyle.liquid:
-        return 3;
-    }
+    return 1;
   }
 }

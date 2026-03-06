@@ -14,8 +14,8 @@ void main() {
               children: [
                 ShaderMorphTag(
                   id: 'a',
-                  role: ShaderMorphRole.source,
-                  child: Text('source'),
+                  role: ShaderMorphRole.origin,
+                  child: Text('origin'),
                 ),
                 ShaderMorphTag(
                   id: 'a',
@@ -51,7 +51,7 @@ void main() {
     expect(tag.shadowCapturePolicy, MorphShadowCapturePolicy.exclude);
   });
 
-  testWidgets('ShaderMorph.push returns false when no tagged source exists', (
+  testWidgets('ShaderMorph.push returns false when no tagged origin exists', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(

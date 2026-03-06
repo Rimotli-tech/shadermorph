@@ -29,7 +29,7 @@ ShaderMorphHost(
   duration: const Duration(milliseconds: 700),
   transitionConfig: const MorphTransitionConfig(
     interpolation: MorphInterpolation.easeInOut,
-    shaderStyle: MorphShaderStyle.soft,
+    shaderStyle: MorphShaderStyle.standard,
   ),
   child: Builder(
     builder: (context) {
@@ -40,7 +40,7 @@ ShaderMorphHost(
             onTap: () => host.forwardByTag('profilePic'),
             child: ShaderMorphTag(
               id: 'profilePic',
-              role: ShaderMorphRole.source,
+              role: ShaderMorphRole.origin,
               child: const SourceAvatar(),
             ),
           ),
@@ -62,16 +62,16 @@ Optional tag-level trigger:
 ```dart
 ShaderMorphTag(
   id: 'profilePic',
-  role: ShaderMorphRole.source,
+  role: ShaderMorphRole.origin,
   trigger: ShaderMorphTrigger.onTapForward,
   child: const SourceAvatar(),
 )
 ```
 
 Phase behavior:
-- Initial: source visible, destination hidden.
+- Initial: origin visible, destination hidden.
 - `forwardByTag(id)`: both endpoints hidden during overlay animation; destination visible on completion.
-- `reverseByTag(id)`: both endpoints hidden during overlay animation; source visible on completion.
+- `reverseByTag(id)`: both endpoints hidden during overlay animation; origin visible on completion.
 
 ## Quickstart (Cross-Route)
 
@@ -86,7 +86,7 @@ await ShaderMorph.push(
   suppressTransition: true,
   transitionConfig: const MorphTransitionConfig(
     interpolation: MorphInterpolation.smoothStep,
-    shaderStyle: MorphShaderStyle.soft,
+    shaderStyle: MorphShaderStyle.standard,
   ),
 );
 ```

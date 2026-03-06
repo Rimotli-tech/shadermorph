@@ -22,15 +22,15 @@
   - `ShaderMorphRole` and `ShaderMorphTrigger`
 - Single-page host now owns tag pairing, overlay lifecycle, and endpoint hide/unhide during morph.
 - Single-page host phase behavior is now explicit and deterministic:
-  - initial source-visible/destination-hidden
+  - initial origin-visible/destination-hidden
   - forward/reverse run as overlay-only transitions (both endpoints hidden during active animation)
-  - forward completion lands destination-visible; reverse completion lands source-visible
+  - forward completion lands destination-visible; reverse completion lands origin-visible
 - Added single-page graceful fallback when shader runtime is unavailable (instant phase swap instead of silent no-op).
 - Updated example app to use host-driven tag morphing.
 - `ShaderMorph` now serves as static cross-route facade (`tag/push/reverseAndPop`) only.
 - Added cross-route destination anti-flash handling that preserves capture-ready textures.
-- L1 style segment: added `MorphShaderStyle.liquid` (Protocol-V2 style index `3`).
-- Liquid style now applies visible silhouette deformation (hybrid blob + controlled spill) rather than rectangle-only internal distortion.
+- Style API is now frozen to a single public style: `MorphShaderStyle.standard` (mapped to Protocol-V2 style index `1`).
+- Non-standard styles are retained internally but removed from public API selection until future releases.
 - Protocol-V2 is now the default renderer for both single-page and cross-route morph flows.
 - Added emergency fallback runtime flag: `SHADERMORPH_FORCE_V1_RENDER=true`.
 - Added optional shadow-bind debug flag while V1 is forced: `SHADERMORPH_V2_SHADOW_BIND=true`.

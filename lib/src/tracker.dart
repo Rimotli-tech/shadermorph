@@ -224,16 +224,16 @@ class MorphTracker {
   }
 
   static Future<MorphPairSnapshot> capturePair({
-    required GlobalKey sourceKey,
+    required GlobalKey originKey,
     required GlobalKey destinationKey,
     MorphCaptureOptions captureOptions = const MorphCaptureOptions(),
   }) async {
-    final source = await _captureSingle(sourceKey, options: captureOptions);
+    final origin = await _captureSingle(originKey, options: captureOptions);
     final destination = await _captureSingle(
       destinationKey,
       options: captureOptions,
     );
-    return MorphPairSnapshot(source: source, destination: destination);
+    return MorphPairSnapshot(origin: origin, destination: destination);
   }
 
   static Future<MorphSnapshot> _captureSingle(

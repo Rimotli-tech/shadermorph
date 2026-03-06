@@ -19,9 +19,13 @@ bool isInsideRect(vec2 uv, vec4 rect) {
       uv.y <= rect.y + rect.w;
 }
 
+float rectAspect(vec4 rect) {
+  return max(rect.z, 0.00001) / max(rect.w, 0.00001);
+}
+
 float mixFactorByStyle(float t, int style) {
   if (style == 1) {
-    // Soft: smoother blend ramp.
+    // Standard: smoother blend ramp.
     return t * t * (3.0 - (2.0 * t));
   }
   if (style == 2) {
@@ -36,7 +40,45 @@ float mixFactorByStyle(float t, int style) {
   return t;
 }
 
-vec2 warpLocalUvByStyle(vec2 localUv, float t, int style) {
+vec2 standardAspectCompensatedUv(
+  vec2 localUv,
+  vec4 sourceRect,
+  vec4 targetRect,
+  vec4 movedRect,
+  float t
+) {
+  vec2 centered = (localUv * 2.0) - 1.0;
+
+  float sourceAspect = rectAspect(sourceRect);
+  float targetAspect = rectAspect(targetRect);
+  float movedAspect = rectAspect(movedRect);
+  float blendedAspect = mix(sourceAspect, targetAspect, t);
+
+  // Compensate cross-shape morphs so circles stay visually circular longer.
+  float xScale = clamp(blendedAspect / movedAspect, 0.65, 1.55);
+  float yScale = clamp(movedAspect / blendedAspect, 0.65, 1.55);
+  centered = vec2(centered.x * xScale, centered.y * yScale);
+
+  return (centered * 0.5) + 0.5;
+}
+
+vec2 warpLocalUvByStyle(
+  vec2 localUv,
+  vec4 sourceRect,
+  vec4 targetRect,
+  vec4 movedRect,
+  float t,
+  int style
+) {
+  if (style == 1) {
+    return standardAspectCompensatedUv(
+      localUv,
+      sourceRect,
+      targetRect,
+      movedRect,
+      t
+    );
+  }
   if (style == 2) {
     // Ripple style: radial wave around center.
     vec2 center = vec2(0.5, 0.5);
@@ -73,7 +115,38 @@ vec2 warpLocalUvByStyle(vec2 localUv, float t, int style) {
   return localUv;
 }
 
-float alphaMaskByStyle(vec2 localUv, float t, int style) {
+float standardEdgeAlpha(
+  vec2 localUv,
+  vec4 sourceRect,
+  vec4 targetRect,
+  vec4 movedRect,
+  float t
+) {
+  float aspectDelta = abs(rectAspect(sourceRect) - rectAspect(targetRect));
+  float minDimPx = max(
+    min(movedRect.z * u_resolution.x, movedRect.w * u_resolution.y),
+    1.0
+  );
+  float envelope = sin(clamp(t, 0.0, 1.0) * 3.14159265359);
+  float featherPx = 0.5 + (mix(0.6, 2.0, clamp(aspectDelta, 0.0, 1.0)) * envelope);
+  float featherUv = clamp(featherPx / minDimPx, 0.001, 0.03);
+
+  vec2 edgeDist2 = min(localUv, vec2(1.0) - localUv);
+  float edgeDist = min(edgeDist2.x, edgeDist2.y);
+  return smoothstep(0.0, featherUv, edgeDist);
+}
+
+float alphaMaskByStyle(
+  vec2 localUv,
+  vec4 sourceRect,
+  vec4 targetRect,
+  vec4 movedRect,
+  float t,
+  int style
+) {
+  if (style == 1) {
+    return standardEdgeAlpha(localUv, sourceRect, targetRect, movedRect, t);
+  }
   if (style != 3) {
     return 1.0;
   }
@@ -132,8 +205,22 @@ vec4 samplePairColor(vec2 screenUv, vec4 sourceRect, vec4 targetRect) {
     (screenUv.x - movedRect.x) / safeW,
     (screenUv.y - movedRect.y) / safeH
   );
-  localUv = warpLocalUvByStyle(localUv, u_progress, style);
-  float styleAlpha = alphaMaskByStyle(localUv, u_progress, style);
+  localUv = warpLocalUvByStyle(
+    localUv,
+    sourceRect,
+    targetRect,
+    movedRect,
+    u_progress,
+    style
+  );
+  float styleAlpha = alphaMaskByStyle(
+    localUv,
+    sourceRect,
+    targetRect,
+    movedRect,
+    u_progress,
+    style
+  );
   if (styleAlpha <= 0.001) {
     return vec4(0.0);
   }

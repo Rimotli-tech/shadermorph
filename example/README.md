@@ -39,9 +39,9 @@ flutter run \
 
 1. Single-page Host + Tags:
 - Tap **Forward by tag**.
-- Expect source/destination endpoints to hide during motion, then destination visible at completion.
+- Expect origin/destination endpoints to hide during motion, then destination visible at completion.
 - Tap **Reverse by tag**.
-- Expect endpoints to hide during motion, then source visible at completion.
+- Expect endpoints to hide during motion, then origin visible at completion.
 
 2. Cross-route:
 - Tap **Open Cross-Route Morph**.
