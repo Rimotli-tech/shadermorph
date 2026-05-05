@@ -1,30 +1,59 @@
-## ShaderMorph Flutter
+# ShaderMorph Flutter
 
-Event-driven GPU morph transitions for single-page and cross-route flows.
+`shadermorph_flutter` provides GPU-driven morph transitions for Flutter widgets.
+It supports both:
 
-## Current API
+- Single-page transitions coordinated by `ShaderMorphHost`
+- Cross-route transitions coordinated by `ShaderMorph.push(...)`
+
+The package is built around deterministic geometry capture. Rects are collected in
+Flutter, packed into uniforms, and consumed by a shader that stays "dumb" about UI state.
+
+## Installation
+
+```yaml
+dependencies:
+  shadermorph_flutter: ^0.0.1
+```
+
+## Platform Notes
+
+- Requires Flutter shader support.
+- Ships both a Protocol-V2 render path and a temporary V1 fallback path.
+- Geometry is captured in logical pixels and retains the capture DPR.
+- The Flutter `RuntimeEffect` renderer normalizes rects against the logical
+  shader canvas because `FlutterFragCoord()` is logical in this render path.
+- Physical-pixel normalization remains the protocol target for backends whose
+  fragment coordinates are physical pixels.
+
+## Public API
 
 Single-page:
+
 - `ShaderMorphHost`
 - `ShaderMorphTag`
 - `ShaderMorphHost.of(context).forwardByTag(...)`
 - `ShaderMorphHost.of(context).reverseByTag(...)`
 
 Cross-route:
+
 - `ShaderMorph.tag(...)`
 - `ShaderMorph.push(...)`
 - `ShaderMorph.reverseAndPop(...)`
 
-Config:
+Configuration:
+
 - `MorphTransitionConfig`
 - `MorphInterpolation`
 - `MorphShaderStyle`
 - `MorphShadowCapturePolicy`
 - `BackPopMode`
 
-## Quickstart (Single-Page)
+## Quickstart: Single-Page
 
 ```dart
+import 'package:shadermorph_flutter/shadermorph_flutter.dart';
+
 ShaderMorphHost(
   duration: const Duration(milliseconds: 700),
   transitionConfig: const MorphTransitionConfig(
@@ -68,14 +97,16 @@ ShaderMorphTag(
 )
 ```
 
-Phase behavior:
+Behavior:
 - Initial: origin visible, destination hidden.
 - `forwardByTag(id)`: both endpoints hidden during overlay animation; destination visible on completion.
 - `reverseByTag(id)`: both endpoints hidden during overlay animation; origin visible on completion.
 
-## Quickstart (Cross-Route)
+## Quickstart: Cross-Route
 
 ```dart
+import 'package:shadermorph_flutter/shadermorph_flutter.dart';
+
 // Source page endpoint
 ShaderMorph.tag(id: 'card_tag', child: sourceCard)
 
@@ -99,12 +130,12 @@ ShaderMorph.tag(id: 'card_tag', child: destinationCard)
 await ShaderMorph.reverseAndPop(context, tagId: 'card_tag');
 ```
 
-Cross-route lifecycle notes:
+Cross-route notes:
 - Use `ShaderMorph.push(...)` for deterministic orchestration.
 - Keep `suppressTransition: true` unless route motion is intentional.
 - Destination first-frame flash is suppressed while preserving capture-ready textures.
 
-## Protocol-V2 Runtime
+## Runtime Flags
 
 Protocol-V2 is the default for single-page and cross-route rendering.
 
@@ -125,3 +156,8 @@ flutter run \
 Deprecated compatibility flags (still accepted for one window, with runtime warnings):
 - `SHADERMORPH_V2_RENDER_SINGLE_PAGE`
 - `SHADERMORPH_V2_RENDER_CROSS_ROUTE`
+
+## Additional Documentation
+
+- Protocol details: [`doc/metadata_protocol_v2.md`](doc/metadata_protocol_v2.md)
+- Working example: [`example/lib/main.dart`](example/lib/main.dart)

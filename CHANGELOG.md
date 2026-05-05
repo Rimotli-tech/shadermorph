@@ -1,5 +1,11 @@
 ## Unreleased
 
+- Publish metadata polish:
+  - Added repository, homepage, issue tracker, and pub topics.
+  - Expanded README installation and runtime documentation.
+  - Added API docs for exported public types.
+  - Fixed protocol doc encoding and package-local references.
+  - Clarified Protocol-V2 coordinate-space docs for Flutter RuntimeEffect logical shader space.
 - Breaking cleanup:
   - Removed legacy single-page widget path (`ShaderMorph` as layout-owner widget).
   - Removed controller-centric legacy APIs:

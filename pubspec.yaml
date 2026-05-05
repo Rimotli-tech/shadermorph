@@ -1,7 +1,15 @@
 name: shadermorph_flutter
-description: "ShaderMorph is a cross-platform GPU transition engine."
+description: "GPU-powered morph transitions for Flutter single-page and cross-route flows."
 version: 0.0.1
-homepage:
+homepage: https://github.com/Rimotli-tech/shadermorph
+repository: https://github.com/Rimotli-tech/shadermorph
+issue_tracker: https://github.com/Rimotli-tech/shadermorph/issues
+topics:
+  - flutter
+  - animation
+  - shader
+  - transition
+  - navigation
 
 environment:
   sdk: ^3.10.7

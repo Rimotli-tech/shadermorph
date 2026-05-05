@@ -1,11 +1,15 @@
-// Export the data models
+// Public entrypoint for the ShaderMorph Flutter package.
+//
+// Exported APIs cover:
+// - Single-page morph orchestration with ShaderMorphHost and ShaderMorphTag
+// - Cross-route morph orchestration with ShaderMorph
+// - Metadata, capture, and transition configuration types
 export 'src/models.dart';
 export 'src/cross_route.dart';
 export 'src/transition_config.dart';
 
-// Export the primary widget wrapper
 export 'src/widgets/morph_host.dart';
 
-// (Optional) Export these if you want advanced users to build their own trackers
+// Advanced capture and uniform-packing utilities.
 export 'src/tracker.dart';
 export 'src/coordinator.dart';

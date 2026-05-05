@@ -1,14 +1,20 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
+/// Controls whether shadow or decoration pixels outside the main child bounds
+/// are included in capture snapshots.
 enum MorphShadowCapturePolicy { exclude, include }
 
+/// Playback direction for a morph transition.
 enum MorphDirection { forward, reverse }
 
 /// Holds the visual and spatial state of a widget at the moment of capture.
 class MorphSnapshot {
+  /// The captured raster image for the endpoint.
   final ui.Image image;
+  /// The captured endpoint rect in logical pixels.
   final Rect rect;
+  /// Device pixel ratio used when the snapshot was captured.
   final double pixelRatio;
   bool _disposed = false;
 
@@ -41,7 +47,9 @@ class MorphSnapshot {
 }
 
 class MorphPairSnapshot {
+  /// Origin endpoint snapshot used for the current morph.
   final MorphSnapshot origin;
+  /// Destination endpoint snapshot used for the current morph.
   final MorphSnapshot destination;
   bool _disposed = false;
 

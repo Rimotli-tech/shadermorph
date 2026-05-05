@@ -12,6 +12,7 @@ import 'shader_program_cache.dart';
 import 'tracker.dart';
 import 'transition_config.dart';
 
+/// Lifecycle states for the internal cross-route morph engine.
 enum CrossRouteMorphState {
   idle,
   capturedOrigin,
@@ -21,6 +22,7 @@ enum CrossRouteMorphState {
   disposed,
 }
 
+/// Cross-route tag widget used by [ShaderMorph.tag].
 class CrossRouteMorphTag extends StatefulWidget {
   final String id;
   final MorphShadowCapturePolicy shadowCapturePolicy;
@@ -150,8 +152,10 @@ class MorphTagRegistry {
     }
   }
 
+  /// Returns the most recently mounted key for [id], if any.
   GlobalKey? keyFor(String id) => _latestMountedKey(id);
 
+  /// Captures the latest mounted endpoint for [id].
   Future<MorphSnapshot?> captureById(
     String id, {
     MorphCaptureOptions options = const MorphCaptureOptions(
@@ -163,6 +167,7 @@ class MorphTagRegistry {
     return captureByKey(key, options: options);
   }
 
+  /// Captures a snapshot for a specific tag render key.
   Future<MorphSnapshot?> captureByKey(
     GlobalKey key, {
     MorphCaptureOptions options = const MorphCaptureOptions(
@@ -249,6 +254,7 @@ class CrossRouteMorphSessionStore {
 
   int get token => _token;
 
+  /// Returns `true` when the store holds an active session for [id].
   bool hasSessionFor(String id) => origin != null && tagId == id;
 
   void setOrigin({required String id, required MorphSnapshot snapshot}) {
@@ -266,6 +272,7 @@ class CrossRouteMorphSessionStore {
   }
 }
 
+/// Engine that coordinates capture, overlay playback, and route transitions.
 class ShaderMorphCrossRouteEngine extends ChangeNotifier {
   final Duration duration;
   final MorphTransitionConfig transitionConfig;
@@ -295,16 +302,20 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
   MorphCaptureOptions get _captureOptions =>
       MorphCaptureOptions(shadowPolicy: shadowCapturePolicy);
 
+  /// Current engine state.
   CrossRouteMorphState get state => _state;
 
+  /// Whether a forward or reverse morph is currently running.
   bool get isAnimating =>
       _state == CrossRouteMorphState.animatingForward ||
       _state == CrossRouteMorphState.animatingReverse;
 
+  /// Whether a reverse morph can currently be started for [tagId].
   bool canReverse(String tagId) =>
       _state == CrossRouteMorphState.atDestination &&
       _session.hasSessionFor(tagId);
 
+  /// Starts a forward morph while pushing [route].
   Future<bool> startToRoute({
     required BuildContext context,
     required String tagId,

@@ -1,7 +1,10 @@
+/// Easing curves available for morph progress shaping.
 enum MorphInterpolation { linear, easeIn, easeOut, easeInOut, smoothStep }
 
+/// Public shader styles exposed by the package.
 enum MorphShaderStyle { standard }
 
+/// Runtime configuration shared by single-page and cross-route transitions.
 class MorphTransitionConfig {
   final MorphInterpolation interpolation;
   final MorphShaderStyle shaderStyle;
@@ -11,6 +14,7 @@ class MorphTransitionConfig {
     this.shaderStyle = MorphShaderStyle.standard,
   });
 
+  /// Applies the selected interpolation curve to a normalized progress value.
   double transformProgress(double progress) {
     final t = progress.clamp(0.0, 1.0).toDouble();
     switch (interpolation) {
@@ -32,6 +36,7 @@ class MorphTransitionConfig {
     }
   }
 
+  /// Stable style slot expected by the current shader protocol.
   int get shaderStyleIndex {
     return 1;
   }

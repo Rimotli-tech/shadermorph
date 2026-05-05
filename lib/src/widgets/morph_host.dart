@@ -10,14 +10,20 @@ import '../runtime_config.dart';
 import '../shader_program_cache.dart';
 import '../transition_config.dart';
 
+/// Marks whether a tag is the starting or ending endpoint for a morph pair.
 enum ShaderMorphRole { origin, destination }
 
+/// Optional tag-local trigger helpers for simple tap-driven flows.
 enum ShaderMorphTrigger { none, onTapForward, onTapReverse }
 
+/// Controls how back navigation should behave after a cross-route morph.
 enum BackPopMode { reverseThenPop, immediatePopReset }
 
+/// Public controller contract exposed by [ShaderMorphHost.of].
 abstract class ShaderMorphHostController {
+  /// Starts a forward morph for the resolved tag pair.
   Future<bool> forwardByTag(String id);
+  /// Starts a reverse morph for the resolved tag pair.
   Future<bool> reverseByTag(String id);
 }
 
@@ -120,6 +126,7 @@ class _ShaderMorphHostControllerImpl implements ShaderMorphHostController {
   }
 }
 
+/// Hosts single-page tag registration, capture, and overlay playback.
 class ShaderMorphHost extends StatefulWidget {
   final Widget child;
   final Duration duration;
@@ -136,6 +143,7 @@ class ShaderMorphHost extends StatefulWidget {
     this.backPopMode = BackPopMode.reverseThenPop,
   });
 
+  /// Returns the nearest host controller in the widget tree.
   static ShaderMorphHostController of(BuildContext context) {
     final scope = _ShaderMorphHostScope.maybeOf(context);
     if (scope == null) {
@@ -169,7 +177,6 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
     super.initState();
     _hostController = _ShaderMorphHostControllerImpl(this);
     _controller = AnimationController(vsync: this, duration: widget.duration);
-    _loadShader();
   }
 
   @override
@@ -454,11 +461,17 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
 }
 
 class ShaderMorphTag extends StatefulWidget {
+  /// Tag id used to pair origin and destination endpoints.
   final String id;
+  /// Whether this widget is the origin or destination endpoint.
   final ShaderMorphRole role;
+  /// Optional alternate subtree used only for capture.
   final Widget? captureChild;
+  /// Capture policy for this endpoint.
   final MorphShadowCapturePolicy shadowCapturePolicy;
+  /// Optional event helper for tap-driven demos or simple flows.
   final ShaderMorphTrigger trigger;
+  /// Visible child rendered in the widget tree.
   final Widget child;
 
   const ShaderMorphTag({
@@ -618,6 +631,7 @@ class ShaderMorph {
   static final Map<String, ShaderMorphCrossRouteEngine> _routeControllers =
       <String, ShaderMorphCrossRouteEngine>{};
 
+  /// Wraps a widget in a cross-route morph tag.
   static Widget tag({
     required String id,
     required Widget child,
@@ -638,6 +652,7 @@ class ShaderMorph {
     await ShaderMorphProgramCache.prewarm();
   }
 
+  /// Pushes a page and plays the forward cross-route morph for [tagId].
   static Future<bool> push({
     required BuildContext context,
     required String tagId,
@@ -672,6 +687,7 @@ class ShaderMorph {
     );
   }
 
+  /// Plays the reverse cross-route morph and then pops the current route.
   static Future<bool> reverseAndPop(
     BuildContext context, {
     required String tagId,

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' show Size;
 
+/// A normalized rect packed for Protocol-V2 shader uniforms.
 class MorphRectNormV2 {
   final double x;
   final double y;
@@ -14,6 +15,7 @@ class MorphRectNormV2 {
     required this.h,
   });
 
+  /// A zero rect used for fixed-size uniform padding.
   static const MorphRectNormV2 zero = MorphRectNormV2(
     x: 0.0,
     y: 0.0,
@@ -21,6 +23,7 @@ class MorphRectNormV2 {
     h: 0.0,
   );
 
+  /// Returns `true` when all coordinates are finite and the size is non-negative.
   bool get isFiniteAndNonNegativeSize {
     return x.isFinite &&
         y.isFinite &&
@@ -30,6 +33,7 @@ class MorphRectNormV2 {
         h >= 0.0;
   }
 
+  /// Clamps every field into the inclusive `[0, 1]` range.
   MorphRectNormV2 clampedToUnit() {
     return MorphRectNormV2(
       x: _clamp01(x),
@@ -55,6 +59,7 @@ class MorphRectNormV2 {
   int get hashCode => Object.hash(x, y, w, h);
 }
 
+/// A source/target pair prepared for Protocol-V2 packing.
 class MorphPairRectsV2 {
   final MorphRectNormV2 source;
   final MorphRectNormV2 target;
@@ -67,6 +72,7 @@ class MorphPairRectsV2 {
   });
 }
 
+/// Frame metadata packed into the Protocol-V2 uniform layout.
 class MorphFrameMetadataV2 {
   final Size resolutionPx;
   final double progress;
@@ -80,11 +86,14 @@ class MorphFrameMetadataV2 {
     required this.pairs,
   });
 
+  /// Number of active pairs, capped to [MorphProtocolV2Constants.maxPairs].
   int get pairCount => math.min(pairs.length, MorphProtocolV2Constants.maxPairs);
 
+  /// Fixed-size source rect array used by the packed shader contract.
   List<MorphRectNormV2> get sourceRectsFixed8 =>
       _buildFixedRects((pair) => pair.source);
 
+  /// Fixed-size target rect array used by the packed shader contract.
   List<MorphRectNormV2> get targetRectsFixed8 =>
       _buildFixedRects((pair) => pair.target);
 
@@ -104,6 +113,7 @@ class MorphFrameMetadataV2 {
   }
 }
 
+/// Constants for the deterministic Protocol-V2 float layout.
 class MorphProtocolV2Constants {
   static const int maxPairs = 8;
   static const int scalarFloatCount = 5;
