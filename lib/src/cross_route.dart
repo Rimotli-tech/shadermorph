@@ -7,6 +7,7 @@ import 'package:flutter/scheduler.dart';
 
 import 'coordinator.dart';
 import 'models.dart';
+import 'policy.dart';
 import 'runtime_config.dart';
 import 'shader_program_cache.dart';
 import 'tracker.dart';
@@ -277,6 +278,7 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
   final Duration duration;
   final MorphTransitionConfig transitionConfig;
   final MorphShadowCapturePolicy shadowCapturePolicy;
+  final ShaderMorphPolicy policy;
   final MorphTagRegistry _registry;
   final CrossRouteMorphSessionStore _session;
 
@@ -294,6 +296,7 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
     this.duration = const Duration(milliseconds: 800),
     this.transitionConfig = const MorphTransitionConfig(),
     this.shadowCapturePolicy = MorphShadowCapturePolicy.include,
+    this.policy = const ShaderMorphPolicy.always(),
     MorphTagRegistry? registry,
     CrossRouteMorphSessionStore? session,
   }) : _registry = registry ?? MorphTagRegistry.instance,
@@ -322,6 +325,11 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
     required Route<void> route,
   }) async {
     if (_state == CrossRouteMorphState.disposed || isAnimating) return false;
+    if (!policy.allowsAnimation) {
+      if (!context.mounted) return false;
+      unawaited(Navigator.of(context).push(route));
+      return true;
+    }
 
     final originKey = _registry.keyFor(tagId);
     if (originKey == null) return false;

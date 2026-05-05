@@ -1,5 +1,10 @@
 ## Unreleased
 
+- Added manual animation policy controls:
+  - `ShaderMorphPolicy.always()`
+  - `ShaderMorphPolicy.disabled()`
+  - `ShaderMorphPolicy.disabledOnWeb()`
+  - Suppressed transitions instant-settle without shader load, capture, or overlay animation.
 - Publish metadata polish:
   - Added repository, homepage, issue tracker, and pub topics.
   - Expanded README installation and runtime documentation.

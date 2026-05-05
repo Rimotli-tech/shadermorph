@@ -6,6 +6,7 @@
 // - Metadata, capture, and transition configuration types
 export 'src/models.dart';
 export 'src/cross_route.dart';
+export 'src/policy.dart';
 export 'src/transition_config.dart';
 
 export 'src/widgets/morph_host.dart';

@@ -6,6 +6,7 @@ import '../models.dart';
 import '../tracker.dart';
 import '../coordinator.dart';
 import '../cross_route.dart';
+import '../policy.dart';
 import '../runtime_config.dart';
 import '../shader_program_cache.dart';
 import '../transition_config.dart';
@@ -23,6 +24,7 @@ enum BackPopMode { reverseThenPop, immediatePopReset }
 abstract class ShaderMorphHostController {
   /// Starts a forward morph for the resolved tag pair.
   Future<bool> forwardByTag(String id);
+
   /// Starts a reverse morph for the resolved tag pair.
   Future<bool> reverseByTag(String id);
 }
@@ -133,6 +135,7 @@ class ShaderMorphHost extends StatefulWidget {
   final MorphTransitionConfig transitionConfig;
   final MorphShadowCapturePolicy shadowCapturePolicy;
   final BackPopMode backPopMode;
+  final ShaderMorphPolicy policy;
 
   const ShaderMorphHost({
     super.key,
@@ -141,6 +144,7 @@ class ShaderMorphHost extends StatefulWidget {
     this.transitionConfig = const MorphTransitionConfig(),
     this.shadowCapturePolicy = MorphShadowCapturePolicy.exclude,
     this.backPopMode = BackPopMode.reverseThenPop,
+    this.policy = const ShaderMorphPolicy.always(),
   });
 
   /// Returns the nearest host controller in the widget tree.
@@ -278,6 +282,13 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
         'ShaderMorphHost: play failed for "$id"; unresolved tag pair.',
       );
       return false;
+    }
+    if (!widget.policy.allowsAnimation) {
+      _hostController.setDestinationVisible(
+        id: id,
+        visible: direction == MorphDirection.forward,
+      );
+      return true;
     }
     if (_program == null) {
       await _loadShader();
@@ -463,14 +474,19 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
 class ShaderMorphTag extends StatefulWidget {
   /// Tag id used to pair origin and destination endpoints.
   final String id;
+
   /// Whether this widget is the origin or destination endpoint.
   final ShaderMorphRole role;
+
   /// Optional alternate subtree used only for capture.
   final Widget? captureChild;
+
   /// Capture policy for this endpoint.
   final MorphShadowCapturePolicy shadowCapturePolicy;
+
   /// Optional event helper for tap-driven demos or simple flows.
   final ShaderMorphTrigger trigger;
+
   /// Visible child rendered in the widget tree.
   final Widget child;
 
@@ -661,12 +677,28 @@ class ShaderMorph {
     BackPopMode backPopMode = BackPopMode.reverseThenPop,
     MorphShadowCapturePolicy shadowCapturePolicy =
         MorphShadowCapturePolicy.exclude,
+    ShaderMorphPolicy policy = const ShaderMorphPolicy.always(),
     bool suppressTransition = true,
     RouteSettings? settings,
   }) async {
+    if (!policy.allowsAnimation) {
+      if (!context.mounted) return false;
+      _routeControllers.remove(tagId)?.dispose();
+      unawaited(
+        Navigator.of(context).push(
+          _buildRoute(
+            page: page,
+            suppressTransition: suppressTransition,
+            settings: settings,
+          ),
+        ),
+      );
+      return true;
+    }
     final engine = ShaderMorphCrossRouteEngine(
       transitionConfig: transitionConfig,
       shadowCapturePolicy: shadowCapturePolicy,
+      policy: policy,
     );
     _routeControllers[tagId]?.dispose();
     _routeControllers[tagId] = engine;

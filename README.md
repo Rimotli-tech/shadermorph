@@ -47,6 +47,8 @@ Configuration:
 - `MorphInterpolation`
 - `MorphShaderStyle`
 - `MorphShadowCapturePolicy`
+- `ShaderMorphPolicy`
+- `ShaderMorphPolicyMode`
 - `BackPopMode`
 
 ## Quickstart: Single-Page
@@ -134,6 +136,32 @@ Cross-route notes:
 - Use `ShaderMorph.push(...)` for deterministic orchestration.
 - Keep `suppressTransition: true` unless route motion is intentional.
 - Destination first-frame flash is suppressed while preserving capture-ready textures.
+
+## Performance Policy
+
+ShaderMorph animations can be manually suppressed when an app wants instant
+state changes on specific platforms or device classes.
+
+```dart
+ShaderMorphHost(
+  policy: const ShaderMorphPolicy.disabledOnWeb(),
+  child: child,
+)
+```
+
+```dart
+await ShaderMorph.push(
+  context: context,
+  tagId: 'card_tag',
+  page: const DestinationPage(tagId: 'card_tag'),
+  policy: const ShaderMorphPolicy.disabled(),
+);
+```
+
+Policies:
+- `ShaderMorphPolicy.always()`: default, keep shader morphs enabled.
+- `ShaderMorphPolicy.disabled()`: skip shader/capture work and instant-settle.
+- `ShaderMorphPolicy.disabledOnWeb()`: instant-settle on web, animate elsewhere.
 
 ## Runtime Flags
 
