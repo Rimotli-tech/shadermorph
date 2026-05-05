@@ -96,7 +96,6 @@ class _PageContent extends StatelessWidget {
                   shaderStyle: MorphShaderStyle.standard,
                 ),
                 page: const _CrossRouteDestinationPage(tagId: crossRouteTagId),
-                suppressTransition: false,
               );
             },
           ),
