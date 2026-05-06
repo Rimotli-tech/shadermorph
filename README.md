@@ -1,14 +1,25 @@
 # ShaderMorph Flutter
 
-`shadermorph_flutter` provides GPU-driven morph transitions for Flutter widgets.
-It supports both:
+`shadermorph_flutter` is a Flutter package for **shared element transitions and
+morph animations between widgets**, including cross-route navigation
+transitions.
 
-- Single-page transitions coordinated by `ShaderMorphHost`
-- Cross-route transitions coordinated by `ShaderMorphTag(pushTo: ...)` or
-  `ShaderMorph.push(...)`
+It is an advanced alternative to Flutter's built-in Hero animation, enabling:
 
-The package is built around deterministic geometry capture. Rects are collected in
-Flutter, packed into uniforms, and consumed by a shader that stays "dumb" about UI state.
+- Morphing shapes, not just position and scale
+- Smooth GPU-driven animations
+- Cross-route shared element transitions
+- Tag-based pairing of origin and destination widgets
+- Manual performance policies for platforms where animation should instant-settle
+
+## Mental Model
+
+- A morph is defined by two widgets sharing the same `id`.
+- One widget is the `origin`, the other is the `destination`.
+- ShaderMorph captures both endpoints and animates between them.
+- Same-page transitions use `ShaderMorphHost`.
+- Navigation transitions use `ShaderMorphTag(pushTo: ...)` or
+  `ShaderMorph.push(...)`.
 
 ## Installation
 
@@ -16,42 +27,6 @@ Flutter, packed into uniforms, and consumed by a shader that stays "dumb" about 
 dependencies:
   shadermorph_flutter: ^0.0.1
 ```
-
-## Platform Notes
-
-- Requires Flutter shader support.
-- Ships both a Protocol-V2 render path and a temporary V1 fallback path.
-- Geometry is captured in logical pixels and retains the capture DPR.
-- The Flutter `RuntimeEffect` renderer normalizes rects against the logical
-  shader canvas because `FlutterFragCoord()` is logical in this render path.
-- Physical-pixel normalization remains the protocol target for backends whose
-  fragment coordinates are physical pixels.
-
-## Public API
-
-Single-page:
-
-- `ShaderMorphHost`
-- `ShaderMorphTag`
-- `ShaderMorphHost.of(context).forwardByTag(...)`
-- `ShaderMorphHost.of(context).reverseByTag(...)`
-
-Cross-route:
-
-- `ShaderMorphTag(pushTo: ...)`
-- `ShaderMorph.tag(...)`
-- `ShaderMorph.push(...)`
-- `ShaderMorph.reverseAndPop(...)`
-
-Configuration:
-
-- `MorphTransitionConfig`
-- `MorphInterpolation`
-- `MorphShaderStyle`
-- `MorphShadowCapturePolicy`
-- `ShaderMorphPolicy`
-- `ShaderMorphPolicyMode`
-- `BackPopMode`
 
 ## Quickstart: Single-Page
 
@@ -67,6 +42,7 @@ ShaderMorphHost(
   child: Builder(
     builder: (context) {
       final host = ShaderMorphHost.of(context);
+
       return Column(
         children: [
           GestureDetector(
@@ -104,23 +80,21 @@ ShaderMorphTag(
 Behavior:
 
 - Initial: origin visible, destination hidden.
-- `forwardByTag(id)`: both endpoints hidden during overlay animation;
-  destination visible on completion.
-- `reverseByTag(id)`: both endpoints hidden during overlay animation; origin
-  visible on completion.
+- `forwardByTag(id)`: both endpoints hide during animation, then destination
+  remains visible.
+- `reverseByTag(id)`: both endpoints hide during animation, then origin remains
+  visible.
 
 ## Quickstart: Cross-Route
 
 ```dart
-import 'package:shadermorph_flutter/shadermorph_flutter.dart';
-
-// Source page endpoint
+// Source page
 ShaderMorphTag(
   id: 'card_tag',
   role: ShaderMorphRole.origin,
   pushTo: const DestinationPage(tagId: 'card_tag'),
   transitionConfig: const MorphTransitionConfig(
-    interpolation: MorphInterpolation.smoothStep,
+    interpolation: MorphInterpolation.easeInOut,
     shaderStyle: MorphShaderStyle.standard,
   ),
   child: sourceCard,
@@ -128,26 +102,27 @@ ShaderMorphTag(
 ```
 
 ```dart
-// Destination page endpoint
+// Destination page
 ShaderMorphTag(
   id: 'card_tag',
   role: ShaderMorphRole.destination,
   child: destinationCard,
 )
 
-// Back action
+// Back navigation
 await ShaderMorph.reverseAndPop(context, tagId: 'card_tag');
 ```
 
-Cross-route notes:
+Notes:
 
-- Use `ShaderMorphTag(pushTo: ...)` for the common tap-to-route flow.
-- Use `ShaderMorph.push(...)` when a separate widget should trigger the route.
-- `ShaderMorphHost` is not required for cross-route morphs.
-- Keep `suppressTransition: true` unless route motion is intentional.
-- Destination first-frame flash is suppressed while preserving capture-ready textures.
+- `ShaderMorphHost` is not required for cross-route transitions.
+- `pushTo` is the preferred API for tap-driven navigation.
+- Use `ShaderMorph.push(...)` for external triggers, menu actions, keyboard
+  shortcuts, or any case where the origin itself should not be tappable.
+- Native route transitions are suppressed by default for visual continuity.
+- Destination first-frame flash is automatically prevented.
 
-Separate trigger example:
+External trigger example:
 
 ```dart
 ShaderMorphTag(
@@ -168,10 +143,34 @@ IconButton(
 )
 ```
 
+## Core API
+
+Single-page:
+
+- `ShaderMorphHost`
+- `ShaderMorphTag`
+- `ShaderMorphHost.of(context).forwardByTag(...)`
+- `ShaderMorphHost.of(context).reverseByTag(...)`
+
+Cross-route:
+
+- `ShaderMorphTag(pushTo: ...)`
+- `ShaderMorph.push(...)`
+- `ShaderMorph.reverseAndPop(...)`
+
+Configuration:
+
+- `MorphTransitionConfig`
+- `MorphInterpolation`
+- `MorphShaderStyle`
+- `MorphShadowCapturePolicy`
+- `ShaderMorphPolicy`
+- `BackPopMode`
+
 ## Performance Policy
 
-ShaderMorph animations can be manually suppressed when an app wants instant
-state changes on specific platforms or device classes.
+ShaderMorph can be conditionally disabled for performance-sensitive contexts.
+Suppressed transitions instant-settle without shader animation.
 
 ```dart
 ShaderMorphHost(
@@ -190,34 +189,27 @@ ShaderMorphTag(
 )
 ```
 
-Policies:
-- `ShaderMorphPolicy.always()`: default, keep shader morphs enabled.
-- `ShaderMorphPolicy.disabled()`: skip shader/capture work and instant-settle.
-- `ShaderMorphPolicy.disabledOnWeb()`: instant-settle on web, animate elsewhere.
+Policy options:
 
-## Runtime Flags
+- `ShaderMorphPolicy.always()` - default behavior
+- `ShaderMorphPolicy.disabled()` - instant state change, no animation
+- `ShaderMorphPolicy.disabledOnWeb()` - disables animations on web only
 
-Protocol-V2 is the default for single-page and cross-route rendering.
+## Platform Notes
 
-Emergency fallback to V1:
-
-```bash
-flutter run --dart-define=SHADERMORPH_FORCE_V1_RENDER=true
-```
-
-Optional V2 shadow bind while V1 is forced:
-
-```bash
-flutter run \
-  --dart-define=SHADERMORPH_FORCE_V1_RENDER=true \
-  --dart-define=SHADERMORPH_V2_SHADOW_BIND=true
-```
-
-Deprecated compatibility flags (still accepted for one window, with runtime warnings):
-- `SHADERMORPH_V2_RENDER_SINGLE_PAGE`
-- `SHADERMORPH_V2_RENDER_CROSS_ROUTE`
+- Requires Flutter shader support.
+- Geometry is captured in logical pixels and normalized for rendering.
+- Designed to remain visually consistent across device pixel ratios.
+- Web can be handled conservatively with `ShaderMorphPolicy.disabledOnWeb()`.
 
 ## Additional Documentation
 
-- Protocol details: [`doc/metadata_protocol_v2.md`](doc/metadata_protocol_v2.md)
-- Working example: [`example/lib/main.dart`](example/lib/main.dart)
+- Full working example: [`example/lib/main.dart`](example/lib/main.dart)
+- Example notes: [`example/README.md`](example/README.md)
+- Architecture map: [`projectmap.md`](projectmap.md)
+
+## Summary
+
+ShaderMorph provides a clean, tag-based system for building high-quality shared
+element transitions, morphing UI animations, and cross-route visual continuity
+without the limitations of traditional Hero-based approaches.

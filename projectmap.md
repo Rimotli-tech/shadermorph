@@ -1,7 +1,7 @@
 # ShaderMorph Project Map
 
-Status: Protocol-V2 is the default renderer. V1 remains as an emergency
-fallback path.
+Status: ShaderMorph is a tag-based shared element transition package for
+same-page and cross-route morph animations.
 
 ## Repository Structure
 
@@ -10,13 +10,13 @@ fallback path.
   static `ShaderMorph` cross-route facade, and painters.
 - `lib/src/cross_route.dart` - cross-route registry, session store, and engine.
 - `lib/src/policy.dart` - manual animation allow/suppress policy.
-- `lib/src/models.dart` and `lib/src/models_v2.dart` - snapshots and V2 metadata.
-- `lib/src/coordinator.dart` - V1/V2 uniform binding and V2 packing.
+- `lib/src/models.dart` and `lib/src/models_v2.dart` - snapshots and metadata.
+- `lib/src/coordinator.dart` - uniform binding and metadata packing.
 - `lib/src/tracker.dart` - widget capture, capture layers, and normalization.
-- `lib/src/runtime_config.dart` - runtime flags and fallback selection.
+- `lib/src/runtime_config.dart` - runtime environment switches.
 - `lib/src/shader_program_cache.dart` - shared shader program cache.
-- `shaders/shader_engine.frag` and `shaders/shader_engine_v2.frag`.
-- `doc/metadata_protocol_v2.md` - uniform contract and coordinate protocol.
+- `shaders/` - fragment shaders.
+- `doc/metadata_protocol_v2.md` - low-level shader metadata contract.
 - `example/lib/main.dart` - current preferred API demo.
 - `test/*.dart` - API, metadata, policy, registry, and visual regression tests.
 
@@ -43,7 +43,7 @@ Single-page path:
 6. The host hides both real endpoints and renders a shader overlay.
 7. Completion lands destination-visible for forward and origin-visible for
    reverse.
-8. `MorphCoordinator` builds V2 metadata and binds uniforms for each frame.
+8. `MorphCoordinator` builds metadata and binds uniforms for each frame.
 
 Cross-route path:
 
@@ -60,14 +60,6 @@ Cross-route path:
    route, and morphs back to the stored origin snapshot.
 7. If policy suppresses animation, the route/state instant-settles without
    shader load, capture, or overlay animation.
-
-Renderer selection:
-
-- Default: V2 single-page and cross-route.
-- Emergency fallback: `SHADERMORPH_FORCE_V1_RENDER=true`.
-- Optional V2 shadow bind while V1 is forced:
-  `SHADERMORPH_V2_SHADOW_BIND=true`.
-- Deprecated V2 opt-in flags are still accepted for one compatibility window.
 
 ## Public API Surface
 
@@ -93,26 +85,12 @@ Main flows:
 - Separate-trigger cross-route: `ShaderMorph.push(...)`.
 - Reverse route pop: `ShaderMorph.reverseAndPop(...)`.
 
-## Protocol Snapshot
+## Design Principles
 
-V2 payload:
-
-- Scalar floats: `5`
-- Source rect floats: `32` (`8 * vec4`)
-- Target rect floats: `32` (`8 * vec4`)
-- Total packed floats: `69`
-
-Determinism:
-
-- Shader receives UI state only through uniforms.
-- Rects and `u_resolution` share one coordinate basis before normalization.
-- Pair cap is `8` with deterministic truncation.
-- Shader overlap winner is the lowest index first hit.
-
-Current orchestration note:
-
-- The V2 metadata and shader support up to 8 pairs.
-- Current public single-page and cross-route flows animate one selected tag id
-  per transition.
-
-Reference: `doc/metadata_protocol_v2.md`
+- Widgets define intent through shared ids and roles.
+- Shaders receive state only through captured textures, rects, progress, and
+  style uniforms.
+- Flutter owns tagging, capture, navigation, lifecycle, and policy decisions.
+- The common path should be declarative; lower-level APIs remain available for
+  custom trigger and navigation flows.
+- The public style surface is intentionally small: `MorphShaderStyle.standard`.

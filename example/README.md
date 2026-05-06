@@ -5,7 +5,6 @@ This example demonstrates the current preferred ShaderMorph APIs:
 - Single-page morphs with `ShaderMorphHost` and `ShaderMorphTag`.
 - Host-free cross-route morphs with `ShaderMorphTag(pushTo: ...)`.
 - Reverse route morphs with `ShaderMorph.reverseAndPop(...)`.
-- Protocol-V2 as the default renderer.
 
 ## What This Example Covers
 
@@ -28,20 +27,6 @@ Cross-route:
 
 ```bash
 flutter run
-```
-
-Optional emergency fallback testing:
-
-```bash
-flutter run --dart-define=SHADERMORPH_FORCE_V1_RENDER=true
-```
-
-Optional V2 shadow-bind debug while forced V1:
-
-```bash
-flutter run \
-  --dart-define=SHADERMORPH_FORCE_V1_RENDER=true \
-  --dart-define=SHADERMORPH_V2_SHADOW_BIND=true
 ```
 
 ## Manual Validation Checklist

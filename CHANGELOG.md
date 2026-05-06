@@ -16,32 +16,17 @@
   - `ShaderMorphPolicy.disabledOnWeb()`
   - Suppressed transitions instant-settle without shader load, capture, or
     overlay animation.
-- Protocol-V2 is now the default renderer for both single-page and cross-route
-  morph flows.
-- Legacy V1 rendering remains available as an emergency fallback with
-  `SHADERMORPH_FORCE_V1_RENDER=true`.
-- Added optional V2 shadow-bind debug flag while V1 is forced:
-  `SHADERMORPH_V2_SHADOW_BIND=true`.
-- Deprecated compatibility flags are still accepted for one window, with runtime
-  warnings:
-  - `SHADERMORPH_V2_RENDER_SINGLE_PAGE`
-  - `SHADERMORPH_V2_RENDER_CROSS_ROUTE`
-- Clarified Protocol-V2 coordinate-space docs for Flutter RuntimeEffect logical
-  shader space.
 - Added publish metadata:
   - repository
   - homepage
   - issue tracker
   - pub topics
-- Style API is frozen to one public style:
-  `MorphShaderStyle.standard`.
-- Non-standard shader styles remain internal until a future public style API is
-  introduced.
+- Style API is currently focused on `MorphShaderStyle.standard`.
 - Regression and stability fixes:
-  - single-page shader-unavailable fallback now instant-settles
+  - shader-unavailable single-page transitions now instant-settle
   - cross-route destination first-frame flash suppression
-  - V2 sampler binding for source/destination textures
-  - logical shader-space alignment for Flutter RuntimeEffect
+  - source/destination texture binding fixes
+  - logical shader-space alignment across device pixel ratios
   - cross-route reverse/pop animation lifetime cleanup
 
 ## 0.0.1

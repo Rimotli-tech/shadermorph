@@ -1,22 +1,15 @@
-# ShaderMorph Metadata Protocol (V2 - Deterministic Morph Protocol)
+# ShaderMorph Metadata Protocol
 
 This document defines the exact metadata-to-uniform contract between the Flutter
-framework layer and the unified morph shader engine.
+framework layer and the morph shader engine. It is intended for maintainers and
+contributors working on capture, packing, or shader internals.
 
-## 0. Implementation Status / Runtime Notes
+## 0. Runtime Notes
 
-- Protocol-V2 is currently the default renderer in the Flutter package runtime.
-- Legacy V1 render path still exists as a temporary emergency fallback.
 - Current public orchestration animates one selected tag id per transition.
-  The V2 uniform layout still supports up to 8 packed pairs for the shader
-  engine.
+  The uniform layout supports up to 8 packed pairs for the shader engine.
 - `ShaderMorphPolicy` can suppress animation before shader load/capture; this
-  does not change the V2 uniform contract.
-- Runtime flags are documented in the package README:
-  - `SHADERMORPH_FORCE_V1_RENDER`
-  - `SHADERMORPH_V2_SHADOW_BIND`
-- Deprecated V2 opt-in flags are still accepted for one compatibility window but
-  should not be used for new setups.
+  does not change the uniform contract.
 
 ## 1. Coordinate Space
 
@@ -57,9 +50,9 @@ same DPR produces the same normalized rect, so the shader remains deterministic
 as long as `FlutterFragCoord().xy / u_resolution` and the normalized rects share
 one basis.
 
-### 1.3 Flutter RuntimeEffect shader space
+### 1.3 Flutter shader space
 
-The current Flutter renderer draws the V2 shader through `CustomPaint` and
+The current Flutter renderer draws the shader through `CustomPaint` and
 `FragmentShader`. In that path, `FlutterFragCoord()` is aligned to the logical
 canvas coordinate system used by the painter.
 
@@ -69,9 +62,8 @@ Therefore the Flutter renderer packs:
 - rects normalized against the logical canvas size
 
 This is intentional. Passing physical `u_resolution` to the current Flutter
-RuntimeEffect path would make `FlutterFragCoord().xy / u_resolution` use a
-different basis from the canvas geometry and can misalign the morph on high-DPR
-devices.
+shader path would make `FlutterFragCoord().xy / u_resolution` use a different
+basis from the canvas geometry and can misalign the morph on high-DPR devices.
 
 Physical-space packing remains the required form for any backend whose fragment
 coordinates are physical pixels.
