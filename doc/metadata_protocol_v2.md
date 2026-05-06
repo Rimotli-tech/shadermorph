@@ -7,6 +7,11 @@ framework layer and the unified morph shader engine.
 
 - Protocol-V2 is currently the default renderer in the Flutter package runtime.
 - Legacy V1 render path still exists as a temporary emergency fallback.
+- Current public orchestration animates one selected tag id per transition.
+  The V2 uniform layout still supports up to 8 packed pairs for the shader
+  engine.
+- `ShaderMorphPolicy` can suppress animation before shader load/capture; this
+  does not change the V2 uniform contract.
 - Runtime flags are documented in the package README:
   - `SHADERMORPH_FORCE_V1_RENDER`
   - `SHADERMORPH_V2_SHADOW_BIND`

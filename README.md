@@ -4,7 +4,8 @@
 It supports both:
 
 - Single-page transitions coordinated by `ShaderMorphHost`
-- Cross-route transitions coordinated by `ShaderMorph.push(...)`
+- Cross-route transitions coordinated by `ShaderMorphTag(pushTo: ...)` or
+  `ShaderMorph.push(...)`
 
 The package is built around deterministic geometry capture. Rects are collected in
 Flutter, packed into uniforms, and consumed by a shader that stays "dumb" about UI state.
@@ -37,6 +38,7 @@ Single-page:
 
 Cross-route:
 
+- `ShaderMorphTag(pushTo: ...)`
 - `ShaderMorph.tag(...)`
 - `ShaderMorph.push(...)`
 - `ShaderMorph.reverseAndPop(...)`
@@ -100,9 +102,12 @@ ShaderMorphTag(
 ```
 
 Behavior:
+
 - Initial: origin visible, destination hidden.
-- `forwardByTag(id)`: both endpoints hidden during overlay animation; destination visible on completion.
-- `reverseByTag(id)`: both endpoints hidden during overlay animation; origin visible on completion.
+- `forwardByTag(id)`: both endpoints hidden during overlay animation;
+  destination visible on completion.
+- `reverseByTag(id)`: both endpoints hidden during overlay animation; origin
+  visible on completion.
 
 ## Quickstart: Cross-Route
 
@@ -135,10 +140,33 @@ await ShaderMorph.reverseAndPop(context, tagId: 'card_tag');
 ```
 
 Cross-route notes:
+
 - Use `ShaderMorphTag(pushTo: ...)` for the common tap-to-route flow.
 - Use `ShaderMorph.push(...)` when a separate widget should trigger the route.
+- `ShaderMorphHost` is not required for cross-route morphs.
 - Keep `suppressTransition: true` unless route motion is intentional.
 - Destination first-frame flash is suppressed while preserving capture-ready textures.
+
+Separate trigger example:
+
+```dart
+ShaderMorphTag(
+  id: 'card_tag',
+  role: ShaderMorphRole.origin,
+  child: sourceCard,
+)
+
+IconButton(
+  icon: const Icon(Icons.open_in_new),
+  onPressed: () {
+    ShaderMorph.push(
+      context: context,
+      tagId: 'card_tag',
+      page: const DestinationPage(tagId: 'card_tag'),
+    );
+  },
+)
+```
 
 ## Performance Policy
 
@@ -153,12 +181,13 @@ ShaderMorphHost(
 ```
 
 ```dart
-await ShaderMorph.push(
-  context: context,
-  tagId: 'card_tag',
-  page: const DestinationPage(tagId: 'card_tag'),
+ShaderMorphTag(
+  id: 'card_tag',
+  role: ShaderMorphRole.origin,
+  pushTo: const DestinationPage(tagId: 'card_tag'),
   policy: const ShaderMorphPolicy.disabled(),
-);
+  child: sourceCard,
+)
 ```
 
 Policies:

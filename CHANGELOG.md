@@ -1,70 +1,48 @@
 ## Unreleased
 
+- Added host-free declarative cross-route navigation with
+  `ShaderMorphTag(pushTo: ...)`.
+- `ShaderMorphTag` now works as the unified endpoint widget for both
+  single-page and cross-route flows:
+  - `role: ShaderMorphRole.origin`
+  - `role: ShaderMorphRole.destination`
+- `ShaderMorphHost` is required only for single-page `forwardByTag` and
+  `reverseByTag`; cross-route tags register without a host.
+- `ShaderMorph.push(...)` remains available for separate-trigger and advanced
+  cross-route flows.
 - Added manual animation policy controls:
   - `ShaderMorphPolicy.always()`
   - `ShaderMorphPolicy.disabled()`
   - `ShaderMorphPolicy.disabledOnWeb()`
-  - Suppressed transitions instant-settle without shader load, capture, or overlay animation.
-- Added `ShaderMorphTag(pushTo: ...)` for host-free, declarative cross-route morph navigation.
-- Publish metadata polish:
-  - Added repository, homepage, issue tracker, and pub topics.
-  - Expanded README installation and runtime documentation.
-  - Added API docs for exported public types.
-  - Fixed protocol doc encoding and package-local references.
-  - Clarified Protocol-V2 coordinate-space docs for Flutter RuntimeEffect logical shader space.
-- Breaking cleanup:
-  - Removed legacy single-page widget path (`ShaderMorph` as layout-owner widget).
-  - Removed controller-centric legacy APIs:
-    - `ShaderMorphController`
-    - `ShaderMorphPopHandler`
-    - `ShaderMorphRouteBridge`
-    - `buildMorphRoute(...)`
-    - `CrossRouteMorphController`
-    - `CrossRouteMorphPopHandler`
-  - Removed exports of deleted legacy modules.
-  - Replaced deprecated cross-route class names with non-deprecated equivalents:
-    - `MorphTag` -> `CrossRouteMorphTag`
-    - `CrossRouteMorphController` -> `ShaderMorphCrossRouteEngine`
-- Analyzer cleanup complete (`dart analyze` reports zero issues).
-- Added single-page Host + Tags API:
-  - `ShaderMorphHost`
-  - `ShaderMorphTag`
-  - `ShaderMorphHost.of(context).forwardByTag(...)`
-  - `ShaderMorphHost.of(context).reverseByTag(...)`
-  - `ShaderMorphRole` and `ShaderMorphTrigger`
-- Single-page host now owns tag pairing, overlay lifecycle, and endpoint hide/unhide during morph.
-- Single-page host phase behavior is now explicit and deterministic:
-  - initial origin-visible/destination-hidden
-  - forward/reverse run as overlay-only transitions (both endpoints hidden during active animation)
-  - forward completion lands destination-visible; reverse completion lands origin-visible
-- Added single-page graceful fallback when shader runtime is unavailable (instant phase swap instead of silent no-op).
-- Updated example app to use host-driven tag morphing.
-- `ShaderMorph` now serves as static cross-route facade (`tag/push/reverseAndPop`) only.
-- Added cross-route destination anti-flash handling that preserves capture-ready textures.
-- Style API is now frozen to a single public style: `MorphShaderStyle.standard` (mapped to Protocol-V2 style index `1`).
-- Non-standard styles are retained internally but removed from public API selection until future releases.
-- Protocol-V2 is now the default renderer for both single-page and cross-route morph flows.
-- Added emergency fallback runtime flag: `SHADERMORPH_FORCE_V1_RENDER=true`.
-- Added optional shadow-bind debug flag while V1 is forced: `SHADERMORPH_V2_SHADOW_BIND=true`.
-- Added DX facade features:
-  - `ShaderMorph` controller is optional (auto-owned when omitted).
-  - Event-driven triggers via `ShaderMorphTriggerMode`.
-  - `ShaderMorphHandle` for optional manual `forward/reverse/toggle`.
-  - Unified helpers: `ShaderMorph.tag(...)`, `ShaderMorph.push(...)`, `ShaderMorph.reverseAndPop(...)`.
-- Marked legacy controller-centric APIs as deprecated (migration window):
-  - `ShaderMorphController`
-  - `ShaderMorphPopHandler`
-  - `CrossRouteMorphController`
-  - `CrossRouteMorphPopHandler`
-  - `MorphTag`
-  - `buildMorphRoute(...)`
-  - `ShaderMorphRouteBridge`
+  - Suppressed transitions instant-settle without shader load, capture, or
+    overlay animation.
+- Protocol-V2 is now the default renderer for both single-page and cross-route
+  morph flows.
+- Legacy V1 rendering remains available as an emergency fallback with
+  `SHADERMORPH_FORCE_V1_RENDER=true`.
+- Added optional V2 shadow-bind debug flag while V1 is forced:
+  `SHADERMORPH_V2_SHADOW_BIND=true`.
+- Deprecated compatibility flags are still accepted for one window, with runtime
+  warnings:
+  - `SHADERMORPH_V2_RENDER_SINGLE_PAGE`
+  - `SHADERMORPH_V2_RENDER_CROSS_ROUTE`
+- Clarified Protocol-V2 coordinate-space docs for Flutter RuntimeEffect logical
+  shader space.
+- Added publish metadata:
+  - repository
+  - homepage
+  - issue tracker
+  - pub topics
+- Style API is frozen to one public style:
+  `MorphShaderStyle.standard`.
+- Non-standard shader styles remain internal until a future public style API is
+  introduced.
 - Regression and stability fixes:
-  - Fixed pop freeze paths across single-page modes.
-  - Fixed V2 sampler binding (`source`/`destination` images) to avoid invalid shader usage.
-  - Fixed logical shader-space alignment to prevent incorrect size/position rendering.
-  - Fixed `childBuilder` recursion path that caused widget tree inflation crashes.
-  - Fixed cross-route reverse+pop animation lifetime/controller disposal sequencing.
+  - single-page shader-unavailable fallback now instant-settles
+  - cross-route destination first-frame flash suppression
+  - V2 sampler binding for source/destination textures
+  - logical shader-space alignment for Flutter RuntimeEffect
+  - cross-route reverse/pop animation lifetime cleanup
 
 ## 0.0.1
 
