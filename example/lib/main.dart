@@ -85,19 +85,15 @@ class _PageContent extends StatelessWidget {
             child: const _CircleMorphTarget(),
           ),
           const SizedBox(height: 16),
-          _CrossRouteSourceCard(
-            tagId: crossRouteTagId,
-            onOpen: () async {
-              await ShaderMorph.push(
-                context: context,
-                tagId: crossRouteTagId,
-                transitionConfig: const MorphTransitionConfig(
-                  interpolation: MorphInterpolation.easeInOut,
-                  shaderStyle: MorphShaderStyle.standard,
-                ),
-                page: const _CrossRouteDestinationPage(tagId: crossRouteTagId),
-              );
-            },
+          ShaderMorphTag(
+            id: crossRouteTagId,
+            role: ShaderMorphRole.origin,
+            pushTo: const _CrossRouteDestinationPage(tagId: crossRouteTagId),
+            transitionConfig: const MorphTransitionConfig(
+              interpolation: MorphInterpolation.easeInOut,
+              shaderStyle: MorphShaderStyle.standard,
+            ),
+            child: const _CrossRouteSourceCard(),
           ),
         ],
       ),
@@ -187,40 +183,31 @@ class _DestinationRow extends StatelessWidget {
 }
 
 class _CrossRouteSourceCard extends StatelessWidget {
-  final String tagId;
-  final VoidCallback onOpen;
-
-  const _CrossRouteSourceCard({required this.tagId, required this.onOpen});
+  const _CrossRouteSourceCard();
 
   @override
   Widget build(BuildContext context) {
-    return ShaderMorph.tag(
-      id: tagId,
-      child: GestureDetector(
-        onTap: onOpen,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFF2B2835),
-            borderRadius: BorderRadius.circular(22),
-          ),
-          child: const Row(
-            children: [
-              Icon(Icons.open_in_new, color: Colors.white),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Open Cross-Route Morph',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2B2835),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.open_in_new, color: Colors.white),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Open Cross-Route Morph',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
               ),
-              Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 16),
-            ],
+            ),
           ),
-        ),
+          Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 16),
+        ],
       ),
     );
   }
@@ -252,8 +239,9 @@ class _CrossRouteDestinationPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 80),
-            ShaderMorph.tag(
+            ShaderMorphTag(
               id: tagId,
+              role: ShaderMorphRole.destination,
               child: Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(

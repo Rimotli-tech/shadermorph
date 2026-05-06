@@ -5,6 +5,7 @@
   - `ShaderMorphPolicy.disabled()`
   - `ShaderMorphPolicy.disabledOnWeb()`
   - Suppressed transitions instant-settle without shader load, capture, or overlay animation.
+- Added `ShaderMorphTag(pushTo: ...)` for host-free, declarative cross-route morph navigation.
 - Publish metadata polish:
   - Added repository, homepage, issue tracker, and pub topics.
   - Expanded README installation and runtime documentation.

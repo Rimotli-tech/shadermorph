@@ -487,6 +487,33 @@ class ShaderMorphTag extends StatefulWidget {
   /// Optional event helper for tap-driven demos or simple flows.
   final ShaderMorphTrigger trigger;
 
+  /// Optional destination page for tap-driven cross-route morphs.
+  final Widget? pushTo;
+
+  /// Transition config used when [pushTo] starts a cross-route morph.
+  final MorphTransitionConfig transitionConfig;
+
+  /// Back behavior used when [pushTo] starts a cross-route morph.
+  final BackPopMode backPopMode;
+
+  /// Animation policy used when [pushTo] starts a cross-route morph.
+  final ShaderMorphPolicy policy;
+
+  /// Whether native route transitions are suppressed for [pushTo].
+  final bool suppressTransition;
+
+  /// Route settings used when [pushTo] starts a cross-route morph.
+  final RouteSettings? routeSettings;
+
+  /// Whether tap-driven [pushTo] navigation is enabled.
+  final bool enabled;
+
+  /// Hit test behavior for tap-driven [pushTo] and [trigger] handling.
+  final HitTestBehavior tapBehavior;
+
+  /// Called with the result of a tap-driven [pushTo] attempt.
+  final ValueChanged<bool>? onPushResult;
+
   /// Visible child rendered in the widget tree.
   final Widget child;
 
@@ -497,6 +524,15 @@ class ShaderMorphTag extends StatefulWidget {
     this.captureChild,
     this.shadowCapturePolicy = MorphShadowCapturePolicy.exclude,
     this.trigger = ShaderMorphTrigger.none,
+    this.pushTo,
+    this.transitionConfig = const MorphTransitionConfig(),
+    this.backPopMode = BackPopMode.reverseThenPop,
+    this.policy = const ShaderMorphPolicy.always(),
+    this.suppressTransition = true,
+    this.routeSettings,
+    this.enabled = true,
+    this.tapBehavior = HitTestBehavior.opaque,
+    this.onPushResult,
     required this.child,
   });
 
@@ -533,6 +569,7 @@ class _ShaderMorphTagState extends State<ShaderMorphTag> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _registerToRouteRegistry();
     final nextHost = _ShaderMorphHostScope.maybeOf(context)?.controller;
     if (identical(_hostController, nextHost)) {
       return;
@@ -545,6 +582,10 @@ class _ShaderMorphTagState extends State<ShaderMorphTag> {
   @override
   void didUpdateWidget(covariant ShaderMorphTag oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.id != widget.id) {
+      MorphTagRegistry.instance.unregister(oldWidget.id, _paintKey);
+      _registerToRouteRegistry();
+    }
     if (oldWidget.id != widget.id ||
         oldWidget.role != widget.role ||
         oldWidget.shadowCapturePolicy != widget.shadowCapturePolicy) {
@@ -562,6 +603,10 @@ class _ShaderMorphTagState extends State<ShaderMorphTag> {
     );
   }
 
+  void _registerToRouteRegistry() {
+    MorphTagRegistry.instance.register(widget.id, _paintKey);
+  }
+
   void _unregisterFromHost({String? id, ShaderMorphRole? role}) {
     _hostController?.unregisterTag(
       id: id ?? widget.id,
@@ -573,7 +618,33 @@ class _ShaderMorphTagState extends State<ShaderMorphTag> {
   @override
   void dispose() {
     _unregisterFromHost();
+    MorphTagRegistry.instance.unregister(widget.id, _paintKey);
     super.dispose();
+  }
+
+  void _handleTap() {
+    if (!widget.enabled) return;
+    final page = widget.pushTo;
+    if (page != null) {
+      unawaited(_pushTo(page));
+      return;
+    }
+    _handleTagTrigger();
+  }
+
+  Future<void> _pushTo(Widget page) async {
+    final result = await ShaderMorph.push(
+      context: context,
+      tagId: widget.id,
+      page: page,
+      transitionConfig: widget.transitionConfig,
+      backPopMode: widget.backPopMode,
+      shadowCapturePolicy: widget.shadowCapturePolicy,
+      policy: widget.policy,
+      suppressTransition: widget.suppressTransition,
+      settings: widget.routeSettings,
+    );
+    widget.onPushResult?.call(result);
   }
 
   void _handleTagTrigger() {
@@ -630,13 +701,40 @@ class _ShaderMorphTagState extends State<ShaderMorphTag> {
         child: content,
       );
     }
-    if (widget.trigger != ShaderMorphTrigger.none) {
+    if (widget.pushTo != null || widget.trigger != ShaderMorphTrigger.none) {
       content = GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: _handleTagTrigger,
+        behavior: widget.tapBehavior,
+        onTap: _handleTap,
         child: content,
       );
     }
+    content = ValueListenableBuilder<Set<GlobalKey>>(
+      valueListenable: MorphTagRegistry.instance.hiddenTags,
+      builder: (context, hiddenTags, child) {
+        return ValueListenableBuilder<Set<String>>(
+          valueListenable: MorphTagRegistry.instance.hiddenTagIds,
+          builder: (context, hiddenTagIds, _) {
+            final hidden =
+                hiddenTags.contains(_paintKey) ||
+                hiddenTagIds.contains(widget.id);
+            if (!hidden) {
+              return child!;
+            }
+            return IgnorePointer(
+              child: ExcludeSemantics(
+                child: ColorFiltered(
+                  colorFilter: const ColorFilter.matrix(
+                    _transparentColorMatrix,
+                  ),
+                  child: child!,
+                ),
+              ),
+            );
+          },
+        );
+      },
+      child: content,
+    );
     return content;
   }
 }

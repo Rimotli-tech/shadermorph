@@ -110,30 +110,33 @@ Behavior:
 import 'package:shadermorph_flutter/shadermorph_flutter.dart';
 
 // Source page endpoint
-ShaderMorph.tag(id: 'card_tag', child: sourceCard)
-
-await ShaderMorph.push(
-  context: context,
-  tagId: 'card_tag',
-  page: const DestinationPage(tagId: 'card_tag'),
-  suppressTransition: true,
+ShaderMorphTag(
+  id: 'card_tag',
+  role: ShaderMorphRole.origin,
+  pushTo: const DestinationPage(tagId: 'card_tag'),
   transitionConfig: const MorphTransitionConfig(
     interpolation: MorphInterpolation.smoothStep,
     shaderStyle: MorphShaderStyle.standard,
   ),
-);
+  child: sourceCard,
+)
 ```
 
 ```dart
 // Destination page endpoint
-ShaderMorph.tag(id: 'card_tag', child: destinationCard)
+ShaderMorphTag(
+  id: 'card_tag',
+  role: ShaderMorphRole.destination,
+  child: destinationCard,
+)
 
 // Back action
 await ShaderMorph.reverseAndPop(context, tagId: 'card_tag');
 ```
 
 Cross-route notes:
-- Use `ShaderMorph.push(...)` for deterministic orchestration.
+- Use `ShaderMorphTag(pushTo: ...)` for the common tap-to-route flow.
+- Use `ShaderMorph.push(...)` when a separate widget should trigger the route.
 - Keep `suppressTransition: true` unless route motion is intentional.
 - Destination first-frame flash is suppressed while preserving capture-ready textures.
 

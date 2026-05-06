@@ -117,4 +117,53 @@ void main() {
     expect(find.text('tap-origin'), findsOneWidget);
     expect(find.text('dest'), findsOneWidget);
   });
+
+  testWidgets('ShaderMorphTag registers for cross-route without host', (
+    WidgetTester tester,
+  ) async {
+    MorphTagRegistry.instance.clearForTesting();
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: ShaderMorphTag(
+            id: 'route-tag',
+            role: ShaderMorphRole.origin,
+            child: Text('route source'),
+          ),
+        ),
+      ),
+    );
+
+    expect(MorphTagRegistry.instance.keyFor('route-tag'), isNotNull);
+  });
+
+  testWidgets('pushTo can push without ShaderMorphHost', (
+    WidgetTester tester,
+  ) async {
+    bool? result;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ShaderMorphTag(
+            id: 'push-tag',
+            role: ShaderMorphRole.origin,
+            pushTo: const Scaffold(body: Center(child: Text('pushed page'))),
+            policy: const ShaderMorphPolicy.disabled(),
+            onPushResult: (started) {
+              result = started;
+            },
+            child: const Text('tap source'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('tap source'));
+    await tester.pumpAndSettle();
+
+    expect(result, isTrue);
+    expect(find.text('pushed page'), findsOneWidget);
+  });
 }
