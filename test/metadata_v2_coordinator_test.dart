@@ -4,10 +4,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shadermorph_flutter/src/coordinator.dart';
 import 'package:shadermorph_flutter/src/models.dart';
 import 'package:shadermorph_flutter/src/models_v2.dart';
+import 'package:shadermorph_flutter/src/shape.dart';
 
 MorphPairRectsV2 _pair({
   required double sourceBase,
   required double targetBase,
+  MorphShapeDataV2 sourceShape = MorphShapeDataV2.rect,
+  MorphShapeDataV2 targetShape = MorphShapeDataV2.rect,
 }) {
   return MorphPairRectsV2(
     source: MorphRectNormV2(
@@ -22,6 +25,8 @@ MorphPairRectsV2 _pair({
       w: targetBase + 0.03,
       h: targetBase + 0.04,
     ),
+    sourceShape: sourceShape,
+    targetShape: targetShape,
   );
 }
 
@@ -32,7 +37,12 @@ void main() {
       progress: 0.75,
       morphStyle: 4,
       pairs: <MorphPairRectsV2>[
-        _pair(sourceBase: 1.0, targetBase: 10.0),
+        _pair(
+          sourceBase: 1.0,
+          targetBase: 10.0,
+          sourceShape: const MorphShapeDataV2(type: 2.0, radiusRatio: 0.5),
+          targetShape: const MorphShapeDataV2(type: 1.0, radiusRatio: 0.2),
+        ),
         _pair(sourceBase: 2.0, targetBase: 20.0),
       ],
     );
@@ -67,10 +77,21 @@ void main() {
     expect(packed[43], 20.03);
     expect(packed[44], 20.04);
 
+    expect(packed[69], 2.0);
+    expect(packed[70], 0.5);
+    expect(packed[101], 1.0);
+    expect(packed[102], 0.2);
+
     for (var i = 13; i < 37; i += 1) {
       expect(packed[i], 0.0);
     }
-    for (var i = 45; i < packed.length; i += 1) {
+    for (var i = 45; i < 69; i += 1) {
+      expect(packed[i], 0.0);
+    }
+    for (var i = 71; i < 101; i += 1) {
+      expect(packed[i], 0.0);
+    }
+    for (var i = 103; i < packed.length; i += 1) {
       expect(packed[i], 0.0);
     }
   });
@@ -79,12 +100,7 @@ void main() {
     final pairs = List<MorphPairRectsV2>.generate(
       10,
       (i) => MorphPairRectsV2(
-        source: MorphRectNormV2(
-          x: i + 0.1,
-          y: i + 0.2,
-          w: i + 0.3,
-          h: i + 0.4,
-        ),
+        source: MorphRectNormV2(x: i + 0.1, y: i + 0.2, w: i + 0.3, h: i + 0.4),
         target: MorphRectNormV2(
           x: i + 10.1,
           y: i + 10.2,
@@ -115,6 +131,11 @@ void main() {
     expect(packed[targetIndex7 + 1], 17.2);
     expect(packed[targetIndex7 + 2], 17.3);
     expect(packed[targetIndex7 + 3], 17.4);
+
+    final sourceShapeIndex7 = 69 + (7 * 4);
+    final targetShapeIndex7 = 101 + (7 * 4);
+    expect(packed[sourceShapeIndex7], 0.0);
+    expect(packed[targetShapeIndex7], 0.0);
   });
 
   test('buildSinglePairMetadataV2 converts logical snapshots with DPR', () {
@@ -132,6 +153,8 @@ void main() {
       ),
       progress: 0.6,
       morphStyle: 7,
+      sourceShape: const MorphShape.circle(),
+      targetShape: const MorphShape.roundedRect(radius: 4),
     );
 
     expect(metadata.resolutionPx, const Size(200, 400));
@@ -144,30 +167,43 @@ void main() {
 
     expect(source, const MorphRectNormV2(x: 0.1, y: 0.1, w: 0.3, h: 0.2));
     expect(target, const MorphRectNormV2(x: 0.2, y: 0.2, w: 0.1, h: 0.1));
+    expect(metadata.sourceShapesFixed8.first.type, 2.0);
+    expect(metadata.sourceShapesFixed8.first.radiusRatio, 0.5);
+    expect(metadata.targetShapesFixed8.first.type, 1.0);
+    expect(metadata.targetShapesFixed8.first.radiusRatio, 0.4);
   });
 
-  test('buildSinglePairMetadataV2 can use logical resolution for shader space', () {
-    final metadata = MorphCoordinator.buildSinglePairMetadataV2(
-      logicalViewport: const Size(100, 200),
-      sourceRect: MorphSnapshot(
-        image: _tinyImage(),
-        rect: const Rect.fromLTWH(10, 20, 30, 40),
-        pixelRatio: 2.0,
-      ),
-      targetRect: MorphSnapshot(
-        image: _tinyImage(),
-        rect: const Rect.fromLTWH(20, 40, 10, 20),
-        pixelRatio: 2.0,
-      ),
-      progress: 0.6,
-      morphStyle: 7,
-      usePhysicalResolution: false,
-    );
+  test(
+    'buildSinglePairMetadataV2 can use logical resolution for shader space',
+    () {
+      final metadata = MorphCoordinator.buildSinglePairMetadataV2(
+        logicalViewport: const Size(100, 200),
+        sourceRect: MorphSnapshot(
+          image: _tinyImage(),
+          rect: const Rect.fromLTWH(10, 20, 30, 40),
+          pixelRatio: 2.0,
+        ),
+        targetRect: MorphSnapshot(
+          image: _tinyImage(),
+          rect: const Rect.fromLTWH(20, 40, 10, 20),
+          pixelRatio: 2.0,
+        ),
+        progress: 0.6,
+        morphStyle: 7,
+        usePhysicalResolution: false,
+      );
 
-    expect(metadata.resolutionPx, const Size(100, 200));
-    expect(metadata.sourceRectsFixed8.first, const MorphRectNormV2(x: 0.1, y: 0.1, w: 0.3, h: 0.2));
-    expect(metadata.targetRectsFixed8.first, const MorphRectNormV2(x: 0.2, y: 0.2, w: 0.1, h: 0.1));
-  });
+      expect(metadata.resolutionPx, const Size(100, 200));
+      expect(
+        metadata.sourceRectsFixed8.first,
+        const MorphRectNormV2(x: 0.1, y: 0.1, w: 0.3, h: 0.2),
+      );
+      expect(
+        metadata.targetRectsFixed8.first,
+        const MorphRectNormV2(x: 0.2, y: 0.2, w: 0.1, h: 0.1),
+      );
+    },
+  );
 }
 
 // Tests only need a valid ui.Image instance; a 1x1 image is sufficient.

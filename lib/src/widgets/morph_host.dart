@@ -9,6 +9,7 @@ import '../cross_route.dart';
 import '../policy.dart';
 import '../runtime_config.dart';
 import '../shader_program_cache.dart';
+import '../shape.dart';
 import '../transition_config.dart';
 
 /// Marks whether a tag is the starting or ending endpoint for a morph pair.
@@ -46,10 +47,12 @@ class _ShaderMorphHostScope extends InheritedWidget {
 class _TagEndpointEntry {
   final GlobalKey key;
   final MorphShadowCapturePolicy shadowCapturePolicy;
+  final MorphShape shape;
 
   const _TagEndpointEntry({
     required this.key,
     required this.shadowCapturePolicy,
+    required this.shape,
   });
 }
 
@@ -87,12 +90,14 @@ class _ShaderMorphHostControllerImpl implements ShaderMorphHostController {
     required ShaderMorphRole role,
     required GlobalKey key,
     required MorphShadowCapturePolicy shadowCapturePolicy,
+    required MorphShape shape,
   }) {
     _state._registerTag(
       id: id,
       role: role,
       key: key,
       shadowCapturePolicy: shadowCapturePolicy,
+      shape: shape,
     );
   }
 
@@ -175,6 +180,8 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
   ui.FragmentShader? _v2ShadowShader;
   ui.FragmentShader? _v2RenderShader;
   bool _animating = false;
+  MorphShape _activeSourceShape = const MorphShape.rect();
+  MorphShape _activeTargetShape = const MorphShape.rect();
 
   @override
   void initState() {
@@ -196,6 +203,7 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
     required ShaderMorphRole role,
     required GlobalKey key,
     required MorphShadowCapturePolicy shadowCapturePolicy,
+    required MorphShape shape,
   }) {
     final bucket = _tags.putIfAbsent(id, () => _TagBuckets());
     final target = role == ShaderMorphRole.origin
@@ -205,7 +213,11 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
       return;
     }
     target.add(
-      _TagEndpointEntry(key: key, shadowCapturePolicy: shadowCapturePolicy),
+      _TagEndpointEntry(
+        key: key,
+        shadowCapturePolicy: shadowCapturePolicy,
+        shape: shape,
+      ),
     );
   }
 
@@ -342,6 +354,8 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
         origin: originSnapshot,
         destination: destinationSnapshot,
       );
+      _activeSourceShape = originEndpoint.shape;
+      _activeTargetShape = destinationEndpoint.shape;
       originSnapshot = null;
       destinationSnapshot = null;
       _animating = true;
@@ -427,6 +441,8 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
                   useV2Render: MorphRuntimeConfig.current.useV2SinglePageRender,
                   transitionConfig: widget.transitionConfig,
                   snapshot: snapshot,
+                  sourceShape: _activeSourceShape,
+                  targetShape: _activeTargetShape,
                   time: _controller.value * 6.28,
                   progress: _controller.value,
                 ),
@@ -444,6 +460,8 @@ class _ShaderMorphHostState extends State<ShaderMorphHost>
     _overlayEntry = null;
     _snapshot?.dispose();
     _snapshot = null;
+    _activeSourceShape = const MorphShape.rect();
+    _activeTargetShape = const MorphShape.rect();
     _controller.stop();
     _controller.reset();
     for (final hiddenKey in _hiddenKeys) {
@@ -484,6 +502,9 @@ class ShaderMorphTag extends StatefulWidget {
   /// Capture policy for this endpoint.
   final MorphShadowCapturePolicy shadowCapturePolicy;
 
+  /// Structural shape hint used by shape-aware morph styles.
+  final MorphShape shape;
+
   /// Optional event helper for tap-driven demos or simple flows.
   final ShaderMorphTrigger trigger;
 
@@ -523,6 +544,7 @@ class ShaderMorphTag extends StatefulWidget {
     required this.role,
     this.captureChild,
     this.shadowCapturePolicy = MorphShadowCapturePolicy.exclude,
+    this.shape = const MorphShape.rect(),
     this.trigger = ShaderMorphTrigger.none,
     this.pushTo,
     this.transitionConfig = const MorphTransitionConfig(),
@@ -582,13 +604,14 @@ class _ShaderMorphTagState extends State<ShaderMorphTag> {
   @override
   void didUpdateWidget(covariant ShaderMorphTag oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.id != widget.id) {
+    if (oldWidget.id != widget.id || oldWidget.shape != widget.shape) {
       MorphTagRegistry.instance.unregister(oldWidget.id, _paintKey);
       _registerToRouteRegistry();
     }
     if (oldWidget.id != widget.id ||
         oldWidget.role != widget.role ||
-        oldWidget.shadowCapturePolicy != widget.shadowCapturePolicy) {
+        oldWidget.shadowCapturePolicy != widget.shadowCapturePolicy ||
+        oldWidget.shape != widget.shape) {
       _unregisterFromHost(id: oldWidget.id, role: oldWidget.role);
       _registerToHost();
     }
@@ -600,11 +623,16 @@ class _ShaderMorphTagState extends State<ShaderMorphTag> {
       role: widget.role,
       key: _paintKey,
       shadowCapturePolicy: widget.shadowCapturePolicy,
+      shape: widget.shape,
     );
   }
 
   void _registerToRouteRegistry() {
-    MorphTagRegistry.instance.register(widget.id, _paintKey);
+    MorphTagRegistry.instance.register(
+      widget.id,
+      _paintKey,
+      shape: widget.shape,
+    );
   }
 
   void _unregisterFromHost({String? id, ShaderMorphRole? role}) {
@@ -752,11 +780,13 @@ class ShaderMorph {
     Widget? captureChild,
     MorphShadowCapturePolicy shadowCapturePolicy =
         MorphShadowCapturePolicy.exclude,
+    MorphShape shape = const MorphShape.rect(),
   }) {
     return CrossRouteMorphTag(
       id: id,
       captureChild: captureChild,
       shadowCapturePolicy: shadowCapturePolicy,
+      shape: shape,
       child: child,
     );
   }
@@ -941,6 +971,8 @@ class _InternalMorphPainter extends CustomPainter {
   final bool useV2Render;
   final MorphTransitionConfig transitionConfig;
   final MorphPairSnapshot snapshot;
+  final MorphShape sourceShape;
+  final MorphShape targetShape;
   final double time;
   final double progress;
   static const double _paintBleedPx = 16.0;
@@ -953,6 +985,8 @@ class _InternalMorphPainter extends CustomPainter {
     required this.useV2Render,
     required this.transitionConfig,
     required this.snapshot,
+    required this.sourceShape,
+    required this.targetShape,
     required this.time,
     required this.progress,
   });
@@ -966,6 +1000,8 @@ class _InternalMorphPainter extends CustomPainter {
       targetRect: snapshot.destination,
       progress: shapedProgress,
       morphStyle: transitionConfig.shaderStyleIndex,
+      sourceShape: sourceShape,
+      targetShape: targetShape,
       // RuntimeEffect fragment coordinates are logical-canvas space.
       usePhysicalResolution: false,
     );

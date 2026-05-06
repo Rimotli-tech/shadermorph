@@ -16,12 +16,20 @@
   - `ShaderMorphPolicy.disabledOnWeb()`
   - Suppressed transitions instant-settle without shader load, capture, or
     overlay animation.
+- Added experimental shape-aware morph support:
+  - `MorphShaderStyle.shapeAware`
+  - `MorphShape.rect()`
+  - `MorphShape.roundedRect(radius: ...)`
+  - `MorphShape.circle()`
+  - `MorphShape.stadium()`
+  - shape metadata is packed into the shader protocol while
+    `MorphShaderStyle.standard` remains unchanged.
 - Added publish metadata:
   - repository
   - homepage
   - issue tracker
   - pub topics
-- Style API is currently focused on `MorphShaderStyle.standard`.
+- `MorphShaderStyle.standard` remains the default style.
 - Regression and stability fixes:
   - shader-unavailable single-page transitions now instant-settle
   - cross-route destination first-frame flash suppression

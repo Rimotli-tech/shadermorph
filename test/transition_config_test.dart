@@ -10,19 +10,28 @@ void main() {
     expect(config.transformProgress(0.25), 0.25);
   });
 
-  test('style enum is frozen to standard', () {
+  test('style enum exposes stable public styles', () {
     expect(
       MorphShaderStyle.values,
-      equals(<MorphShaderStyle>[MorphShaderStyle.standard]),
+      equals(<MorphShaderStyle>[
+        MorphShaderStyle.standard,
+        MorphShaderStyle.shapeAware,
+      ]),
     );
   });
 
-  test('style index mapping remains pinned to old soft slot', () {
+  test('style index mapping remains pinned', () {
     expect(
       const MorphTransitionConfig(
         shaderStyle: MorphShaderStyle.standard,
       ).shaderStyleIndex,
       1,
+    );
+    expect(
+      const MorphTransitionConfig(
+        shaderStyle: MorphShaderStyle.shapeAware,
+      ).shaderStyleIndex,
+      4,
     );
   });
 

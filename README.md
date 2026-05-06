@@ -163,9 +163,48 @@ Configuration:
 - `MorphTransitionConfig`
 - `MorphInterpolation`
 - `MorphShaderStyle`
+- `MorphShape`
 - `MorphShadowCapturePolicy`
 - `ShaderMorphPolicy`
 - `BackPopMode`
+
+## Shape-Aware Morphs
+
+The default `MorphShaderStyle.standard` remains the stable everyday style.
+For shape-heavy transitions, `MorphShaderStyle.shapeAware` is available as an
+experimental style that uses endpoint shape hints while it animates.
+
+```dart
+ShaderMorphTag(
+  id: 'profile_card',
+  role: ShaderMorphRole.origin,
+  shape: const MorphShape.circle(),
+  child: const SourceAvatar(),
+)
+
+ShaderMorphTag(
+  id: 'profile_card',
+  role: ShaderMorphRole.destination,
+  shape: const MorphShape.roundedRect(radius: 28),
+  child: const ProfileCard(),
+)
+```
+
+Use it through the transition config:
+
+```dart
+const MorphTransitionConfig(
+  interpolation: MorphInterpolation.easeInOut,
+  shaderStyle: MorphShaderStyle.shapeAware,
+)
+```
+
+Supported shape hints:
+
+- `MorphShape.rect()`
+- `MorphShape.roundedRect(radius: ...)`
+- `MorphShape.circle()`
+- `MorphShape.stadium()`
 
 ## Performance Policy
 

@@ -49,6 +49,28 @@ void main() {
       find.byType(CrossRouteMorphTag),
     );
     expect(tag.shadowCapturePolicy, MorphShadowCapturePolicy.exclude);
+    expect(tag.shape, const MorphShape.rect());
+  });
+
+  testWidgets('ShaderMorph.tag passes shape hints to cross-route tag', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ShaderMorph.tag(
+            id: 'tag1',
+            shape: const MorphShape.circle(),
+            child: const Text('tagged'),
+          ),
+        ),
+      ),
+    );
+
+    final tag = tester.widget<CrossRouteMorphTag>(
+      find.byType(CrossRouteMorphTag),
+    );
+    expect(tag.shape, const MorphShape.circle());
   });
 
   testWidgets('ShaderMorph.push returns false when no tagged origin exists', (

@@ -27,7 +27,7 @@ class MorphDemoPage extends StatelessWidget {
       duration: const Duration(milliseconds: 700),
       transitionConfig: const MorphTransitionConfig(
         interpolation: MorphInterpolation.easeInOut,
-        shaderStyle: MorphShaderStyle.standard,
+        shaderStyle: MorphShaderStyle.shapeAware,
       ),
       child: Scaffold(
         backgroundColor: const Color(0xFF111014),
@@ -75,6 +75,7 @@ class _PageContent extends StatelessWidget {
             id: singlePageTagId,
             role: ShaderMorphRole.origin,
             trigger: ShaderMorphTrigger.onTapForward,
+            shape: const MorphShape.rect(),
             child: const _TaskCard(),
           ),
           const Spacer(),
@@ -82,6 +83,7 @@ class _PageContent extends StatelessWidget {
             id: singlePageTagId,
             role: ShaderMorphRole.destination,
             trigger: ShaderMorphTrigger.onTapReverse,
+            shape: const MorphShape.circle(),
             child: const _CircleMorphTarget(),
           ),
           const SizedBox(height: 16),

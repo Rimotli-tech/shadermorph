@@ -2,7 +2,7 @@
 enum MorphInterpolation { linear, easeIn, easeOut, easeInOut, smoothStep }
 
 /// Public shader styles exposed by the package.
-enum MorphShaderStyle { standard }
+enum MorphShaderStyle { standard, shapeAware }
 
 /// Runtime configuration shared by single-page and cross-route transitions.
 class MorphTransitionConfig {
@@ -38,6 +38,11 @@ class MorphTransitionConfig {
 
   /// Stable style slot expected by the current shader protocol.
   int get shaderStyleIndex {
-    return 1;
+    switch (shaderStyle) {
+      case MorphShaderStyle.standard:
+        return 1;
+      case MorphShaderStyle.shapeAware:
+        return 4;
+    }
   }
 }

@@ -1,5 +1,7 @@
 import 'dart:math' as math;
-import 'dart:ui' show Size;
+import 'dart:ui' show Rect, Size;
+
+import 'shape.dart';
 
 /// A normalized rect packed for Protocol-V2 shader uniforms.
 class MorphRectNormV2 {
@@ -63,13 +65,72 @@ class MorphRectNormV2 {
 class MorphPairRectsV2 {
   final MorphRectNormV2 source;
   final MorphRectNormV2 target;
+  final MorphShapeDataV2 sourceShape;
+  final MorphShapeDataV2 targetShape;
   final String? id;
 
   const MorphPairRectsV2({
     required this.source,
     required this.target,
+    this.sourceShape = MorphShapeDataV2.rect,
+    this.targetShape = MorphShapeDataV2.rect,
     this.id,
   });
+}
+
+/// Packed structural shape metadata for a Protocol-V2 endpoint.
+class MorphShapeDataV2 {
+  final double type;
+  final double radiusRatio;
+  final double reserved0;
+  final double reserved1;
+
+  const MorphShapeDataV2({
+    required this.type,
+    required this.radiusRatio,
+    this.reserved0 = 0.0,
+    this.reserved1 = 0.0,
+  });
+
+  static const MorphShapeDataV2 rect = MorphShapeDataV2(
+    type: 0.0,
+    radiusRatio: 0.0,
+  );
+
+  factory MorphShapeDataV2.fromShape({
+    required MorphShape shape,
+    required Rect logicalRect,
+  }) {
+    final minDimension = math.min(logicalRect.width, logicalRect.height);
+    final safeMinDimension = minDimension.isFinite && minDimension > 0.0
+        ? minDimension
+        : 1.0;
+    final radiusRatio = switch (shape.kind) {
+      MorphShapeKind.rect => 0.0,
+      MorphShapeKind.roundedRect =>
+        (shape.radius / safeMinDimension).clamp(0.0, 0.5).toDouble(),
+      MorphShapeKind.circle => 0.5,
+      MorphShapeKind.stadium => 0.5,
+    };
+
+    return MorphShapeDataV2(
+      type: shape.shaderType.toDouble(),
+      radiusRatio: radiusRatio,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is MorphShapeDataV2 &&
+        other.type == type &&
+        other.radiusRatio == radiusRatio &&
+        other.reserved0 == reserved0 &&
+        other.reserved1 == reserved1;
+  }
+
+  @override
+  int get hashCode => Object.hash(type, radiusRatio, reserved0, reserved1);
 }
 
 /// Frame metadata packed into the Protocol-V2 uniform layout.
@@ -87,7 +148,8 @@ class MorphFrameMetadataV2 {
   });
 
   /// Number of active pairs, capped to [MorphProtocolV2Constants.maxPairs].
-  int get pairCount => math.min(pairs.length, MorphProtocolV2Constants.maxPairs);
+  int get pairCount =>
+      math.min(pairs.length, MorphProtocolV2Constants.maxPairs);
 
   /// Fixed-size source rect array used by the packed shader contract.
   List<MorphRectNormV2> get sourceRectsFixed8 =>
@@ -96,6 +158,14 @@ class MorphFrameMetadataV2 {
   /// Fixed-size target rect array used by the packed shader contract.
   List<MorphRectNormV2> get targetRectsFixed8 =>
       _buildFixedRects((pair) => pair.target);
+
+  /// Fixed-size source shape array used by shape-aware shader styles.
+  List<MorphShapeDataV2> get sourceShapesFixed8 =>
+      _buildFixedShapes((pair) => pair.sourceShape);
+
+  /// Fixed-size target shape array used by shape-aware shader styles.
+  List<MorphShapeDataV2> get targetShapesFixed8 =>
+      _buildFixedShapes((pair) => pair.targetShape);
 
   List<MorphRectNormV2> _buildFixedRects(
     MorphRectNormV2 Function(MorphPairRectsV2 pair) selector,
@@ -111,6 +181,21 @@ class MorphFrameMetadataV2 {
     }
     return List<MorphRectNormV2>.unmodifiable(fixed);
   }
+
+  List<MorphShapeDataV2> _buildFixedShapes(
+    MorphShapeDataV2 Function(MorphPairRectsV2 pair) selector,
+  ) {
+    final fixed = List<MorphShapeDataV2>.filled(
+      MorphProtocolV2Constants.maxPairs,
+      MorphShapeDataV2.rect,
+      growable: false,
+    );
+    final capped = pairCount;
+    for (var i = 0; i < capped; i += 1) {
+      fixed[i] = selector(pairs[i]);
+    }
+    return List<MorphShapeDataV2>.unmodifiable(fixed);
+  }
 }
 
 /// Constants for the deterministic Protocol-V2 float layout.
@@ -118,5 +203,6 @@ class MorphProtocolV2Constants {
   static const int maxPairs = 8;
   static const int scalarFloatCount = 5;
   static const int rectFloatCountPerSide = 32;
-  static const int totalFloatCount = 69;
+  static const int shapeFloatCountPerSide = 32;
+  static const int totalFloatCount = 133;
 }

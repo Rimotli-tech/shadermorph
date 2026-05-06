@@ -1,7 +1,8 @@
-import 'dart:ui' show Size;
+import 'dart:ui' show Rect, Size;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shadermorph_flutter/src/models_v2.dart';
+import 'package:shadermorph_flutter/src/shape.dart';
 
 MorphPairRectsV2 _pair(double seed, {String? id}) {
   return MorphPairRectsV2(
@@ -35,6 +36,8 @@ void main() {
 
     final sources = metadata.sourceRectsFixed8;
     final targets = metadata.targetRectsFixed8;
+    final sourceShapes = metadata.sourceShapesFixed8;
+    final targetShapes = metadata.targetShapesFixed8;
 
     expect(sources[0], const MorphRectNormV2(x: 1.0, y: 1.1, w: 0.2, h: 0.3));
     expect(sources[1], const MorphRectNormV2(x: 2.0, y: 2.1, w: 0.2, h: 0.3));
@@ -44,7 +47,25 @@ void main() {
     for (var i = 2; i < MorphProtocolV2Constants.maxPairs; i += 1) {
       expect(sources[i], MorphRectNormV2.zero);
       expect(targets[i], MorphRectNormV2.zero);
+      expect(sourceShapes[i], MorphShapeDataV2.rect);
+      expect(targetShapes[i], MorphShapeDataV2.rect);
     }
+  });
+
+  test('shape data converts public shapes into shader metadata', () {
+    final rounded = MorphShapeDataV2.fromShape(
+      shape: const MorphShape.roundedRect(radius: 12),
+      logicalRect: const Rect.fromLTWH(0, 0, 120, 60),
+    );
+    final circle = MorphShapeDataV2.fromShape(
+      shape: const MorphShape.circle(),
+      logicalRect: const Rect.fromLTWH(0, 0, 40, 40),
+    );
+
+    expect(rounded.type, 1.0);
+    expect(rounded.radiusRatio, 0.2);
+    expect(circle.type, 2.0);
+    expect(circle.radiusRatio, 0.5);
   });
 
   test('clampedToUnit clamps every field into [0, 1]', () {
@@ -73,9 +94,10 @@ void main() {
   });
 
   test('protocol constants lock expected total float count', () {
-    expect(MorphProtocolV2Constants.totalFloatCount, 69);
+    expect(MorphProtocolV2Constants.totalFloatCount, 133);
     expect(MorphProtocolV2Constants.scalarFloatCount, 5);
     expect(MorphProtocolV2Constants.rectFloatCountPerSide, 32);
+    expect(MorphProtocolV2Constants.shapeFloatCountPerSide, 32);
     expect(MorphProtocolV2Constants.maxPairs, 8);
   });
 

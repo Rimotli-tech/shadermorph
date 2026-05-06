@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 import 'models.dart';
 import 'models_v2.dart';
+import 'shape.dart';
 import 'tracker.dart';
 
 class MorphCoordinator {
   static const int _v2SourceBase = MorphProtocolV2Constants.scalarFloatCount;
   static const int _v2TargetBase =
       _v2SourceBase + MorphProtocolV2Constants.rectFloatCountPerSide;
+  static const int _v2SourceShapeBase =
+      _v2TargetBase + MorphProtocolV2Constants.rectFloatCountPerSide;
+  static const int _v2TargetShapeBase =
+      _v2SourceShapeBase + MorphProtocolV2Constants.shapeFloatCountPerSide;
 
   static void setUniforms({
     required ui.FragmentShader shader,
@@ -56,6 +61,8 @@ class MorphCoordinator {
 
     final sources = metadata.sourceRectsFixed8;
     final targets = metadata.targetRectsFixed8;
+    final sourceShapes = metadata.sourceShapesFixed8;
+    final targetShapes = metadata.targetShapesFixed8;
 
     for (var i = 0; i < MorphProtocolV2Constants.maxPairs; i += 1) {
       final sourceOffset = _v2SourceBase + (i * 4);
@@ -71,6 +78,20 @@ class MorphCoordinator {
       packed[targetOffset + 1] = target.y;
       packed[targetOffset + 2] = target.w;
       packed[targetOffset + 3] = target.h;
+
+      final sourceShapeOffset = _v2SourceShapeBase + (i * 4);
+      final sourceShape = sourceShapes[i];
+      packed[sourceShapeOffset] = sourceShape.type;
+      packed[sourceShapeOffset + 1] = sourceShape.radiusRatio;
+      packed[sourceShapeOffset + 2] = sourceShape.reserved0;
+      packed[sourceShapeOffset + 3] = sourceShape.reserved1;
+
+      final targetShapeOffset = _v2TargetShapeBase + (i * 4);
+      final targetShape = targetShapes[i];
+      packed[targetShapeOffset] = targetShape.type;
+      packed[targetShapeOffset + 1] = targetShape.radiusRatio;
+      packed[targetShapeOffset + 2] = targetShape.reserved0;
+      packed[targetShapeOffset + 3] = targetShape.reserved1;
     }
 
     return List<double>.unmodifiable(packed);
@@ -92,6 +113,8 @@ class MorphCoordinator {
     required MorphSnapshot targetRect,
     required double progress,
     int morphStyle = 0,
+    MorphShape sourceShape = const MorphShape.rect(),
+    MorphShape targetShape = const MorphShape.rect(),
     bool clampRectsToUnit = false,
     bool usePhysicalResolution = true,
   }) {
@@ -121,7 +144,18 @@ class MorphCoordinator {
       progress: progress,
       morphStyle: morphStyle,
       pairs: <MorphPairRectsV2>[
-        MorphPairRectsV2(source: sourceNorm, target: targetNorm),
+        MorphPairRectsV2(
+          source: sourceNorm,
+          target: targetNorm,
+          sourceShape: MorphShapeDataV2.fromShape(
+            shape: sourceShape,
+            logicalRect: sourceRect.rect,
+          ),
+          targetShape: MorphShapeDataV2.fromShape(
+            shape: targetShape,
+            logicalRect: targetRect.rect,
+          ),
+        ),
       ],
     );
   }

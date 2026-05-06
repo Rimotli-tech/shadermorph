@@ -7,6 +7,8 @@ uniform float u_pairCount;
 uniform float u_morphStyle;
 uniform vec4 u_sourceRects[8];
 uniform vec4 u_targetRects[8];
+uniform vec4 u_sourceShapeData[8];
+uniform vec4 u_targetShapeData[8];
 uniform sampler2D uTexture;
 uniform sampler2D uTargetTexture;
 
@@ -26,6 +28,10 @@ float rectAspect(vec4 rect) {
 float mixFactorByStyle(float t, int style) {
   if (style == 1) {
     // Standard: smoother blend ramp.
+    return t * t * (3.0 - (2.0 * t));
+  }
+  if (style == 4) {
+    // Shape-aware: preserve the calm standard timing while changing silhouette.
     return t * t * (3.0 - (2.0 * t));
   }
   if (style == 2) {
@@ -174,7 +180,40 @@ float alphaMaskByStyle(
   return 1.0 - smoothstep(threshold, threshold + 0.03, blobField);
 }
 
-vec4 samplePairColor(vec2 screenUv, vec4 sourceRect, vec4 targetRect) {
+float roundedRectSdf(vec2 p, vec2 halfSize, float radius) {
+  vec2 q = abs(p) - halfSize + vec2(radius);
+  return length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;
+}
+
+float radiusRatioForShape(vec4 shapeData) {
+  int shapeType = int(shapeData.x + 0.5);
+  if (shapeType == 2 || shapeType == 3) {
+    return 0.5;
+  }
+  return clamp(shapeData.y, 0.0, 0.5);
+}
+
+float shapeAwareAlpha(
+  vec2 localUv,
+  vec4 sourceShape,
+  vec4 targetShape,
+  float t
+) {
+  float sourceRadius = radiusRatioForShape(sourceShape);
+  float targetRadius = radiusRatioForShape(targetShape);
+  float radius = mix(sourceRadius, targetRadius, t) * 2.0;
+  vec2 centered = (localUv * 2.0) - 1.0;
+  float sdf = roundedRectSdf(centered, vec2(1.0), radius);
+  return 1.0 - smoothstep(0.0, 0.018, sdf);
+}
+
+vec4 samplePairColor(
+  vec2 screenUv,
+  vec4 sourceRect,
+  vec4 targetRect,
+  vec4 sourceShape,
+  vec4 targetShape
+) {
   int style = int(u_morphStyle + 0.5);
 
   vec4 movedRect = vec4(
@@ -221,6 +260,9 @@ vec4 samplePairColor(vec2 screenUv, vec4 sourceRect, vec4 targetRect) {
     u_progress,
     style
   );
+  if (style == 4) {
+    styleAlpha *= shapeAwareAlpha(localUv, sourceShape, targetShape, u_progress);
+  }
   if (styleAlpha <= 0.001) {
     return vec4(0.0);
   }
@@ -248,7 +290,13 @@ void main() {
     if (i >= cappedPairCount) {
       break;
     }
-    vec4 sampled = samplePairColor(screenUv, u_sourceRects[i], u_targetRects[i]);
+    vec4 sampled = samplePairColor(
+      screenUv,
+      u_sourceRects[i],
+      u_targetRects[i],
+      u_sourceShapeData[i],
+      u_targetShapeData[i]
+    );
     if (sampled.a > 0.0) {
       color = sampled;
       break;

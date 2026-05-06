@@ -102,6 +102,17 @@ Shader uniforms:
 - `u_pairCount`: int `(0..8)`
 - `u_sourceRects[8]`: vec4 `(x, y, w, h)` normalized
 - `u_targetRects[8]`: vec4 `(x, y, w, h)` normalized
+- `u_sourceShapeData[8]`: vec4 `(type, radiusRatio, reserved0, reserved1)`
+- `u_targetShapeData[8]`: vec4 `(type, radiusRatio, reserved0, reserved1)`
+
+Shape data:
+
+- `type = 0`: rectangle
+- `type = 1`: rounded rectangle
+- `type = 2`: circle
+- `type = 3`: stadium/capsule
+- `radiusRatio`: corner radius divided by the endpoint's minimum logical
+  dimension, clamped to `[0..0.5]`
 
 ## 4. Flutter -> FragmentShader Float Packing (STRICT)
 
@@ -130,9 +141,24 @@ Target rects (next 32 floats), starting at index `37`:
 - `37 + (i * 4) + 2`: `target[i].w`
 - `37 + (i * 4) + 3`: `target[i].h`
 
+Source shape data (next 32 floats), starting at index `69`:
+
+- `69 + (i * 4) + 0`: `sourceShape[i].type`
+- `69 + (i * 4) + 1`: `sourceShape[i].radiusRatio`
+- `69 + (i * 4) + 2`: `sourceShape[i].reserved0`
+- `69 + (i * 4) + 3`: `sourceShape[i].reserved1`
+
+Target shape data (next 32 floats), starting at index `101`:
+
+- `101 + (i * 4) + 0`: `targetShape[i].type`
+- `101 + (i * 4) + 1`: `targetShape[i].radiusRatio`
+- `101 + (i * 4) + 2`: `targetShape[i].reserved0`
+- `101 + (i * 4) + 3`: `targetShape[i].reserved1`
+
 Zero fill:
 
 - For `i >= u_pairCount`, set rects to `vec4(0, 0, 0, 0)`.
+- For unset shape data, use rectangle data: `vec4(0, 0, 0, 0)`.
 
 ## 5. Shader Membership & Overlap Rule
 
