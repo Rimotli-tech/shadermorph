@@ -10,7 +10,6 @@ import 'models.dart';
 import 'policy.dart';
 import 'runtime_config.dart';
 import 'shader_program_cache.dart';
-import 'shape.dart';
 import 'tracker.dart';
 import 'transition_config.dart';
 
@@ -28,7 +27,6 @@ enum CrossRouteMorphState {
 class CrossRouteMorphTag extends StatefulWidget {
   final String id;
   final MorphShadowCapturePolicy shadowCapturePolicy;
-  final MorphShape shape;
   final Widget? captureChild;
   final Widget child;
 
@@ -36,7 +34,6 @@ class CrossRouteMorphTag extends StatefulWidget {
     super.key,
     required this.id,
     this.shadowCapturePolicy = MorphShadowCapturePolicy.include,
-    this.shape = const MorphShape.rect(),
     this.captureChild,
     required this.child,
   });
@@ -73,23 +70,15 @@ class _CrossRouteMorphTagState extends State<CrossRouteMorphTag> {
   @override
   void initState() {
     super.initState();
-    MorphTagRegistry.instance.register(
-      widget.id,
-      _paintKey,
-      shape: widget.shape,
-    );
+    MorphTagRegistry.instance.register(widget.id, _paintKey);
   }
 
   @override
   void didUpdateWidget(covariant CrossRouteMorphTag oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.id != widget.id || oldWidget.shape != widget.shape) {
+    if (oldWidget.id != widget.id) {
       MorphTagRegistry.instance.unregister(oldWidget.id, _paintKey);
-      MorphTagRegistry.instance.register(
-        widget.id,
-        _paintKey,
-        shape: widget.shape,
-      );
+      MorphTagRegistry.instance.register(widget.id, _paintKey);
     }
   }
 
@@ -142,38 +131,27 @@ class MorphTagRegistry {
   static final MorphTagRegistry instance = MorphTagRegistry._();
 
   final Map<String, List<GlobalKey>> _tags = <String, List<GlobalKey>>{};
-  final Map<GlobalKey, MorphShape> _shapes = <GlobalKey, MorphShape>{};
   final ValueNotifier<Set<GlobalKey>> hiddenTags =
       ValueNotifier<Set<GlobalKey>>(<GlobalKey>{});
   final ValueNotifier<Set<String>> hiddenTagIds = ValueNotifier<Set<String>>(
     <String>{},
   );
 
-  void register(
-    String id,
-    GlobalKey key, {
-    MorphShape shape = const MorphShape.rect(),
-  }) {
+  void register(String id, GlobalKey key) {
     final keys = _tags.putIfAbsent(id, () => <GlobalKey>[]);
     if (!keys.contains(key)) {
       keys.add(key);
     }
-    _shapes[key] = shape;
   }
 
   void unregister(String id, GlobalKey key) {
     final keys = _tags[id];
     if (keys == null) return;
     keys.remove(key);
-    _shapes.remove(key);
     if (keys.isEmpty) {
       _tags.remove(id);
     }
   }
-
-  /// Returns the structural shape registered for [key].
-  MorphShape shapeForKey(GlobalKey key) =>
-      _shapes[key] ?? const MorphShape.rect();
 
   /// Returns the most recently mounted key for [id], if any.
   GlobalKey? keyFor(String id) => _latestMountedKey(id);
@@ -249,7 +227,6 @@ class MorphTagRegistry {
   @visibleForTesting
   void clearForTesting() {
     _tags.clear();
-    _shapes.clear();
     hiddenTags.value = <GlobalKey>{};
     hiddenTagIds.value = <String>{};
   }
@@ -269,7 +246,6 @@ class MorphTagRegistry {
 class CrossRouteMorphSessionStore {
   String? tagId;
   MorphSnapshot? origin;
-  MorphShape? originShape;
   int _token = 0;
 
   int nextToken() {
@@ -282,15 +258,10 @@ class CrossRouteMorphSessionStore {
   /// Returns `true` when the store holds an active session for [id].
   bool hasSessionFor(String id) => origin != null && tagId == id;
 
-  void setOrigin({
-    required String id,
-    required MorphSnapshot snapshot,
-    required MorphShape shape,
-  }) {
+  void setOrigin({required String id, required MorphSnapshot snapshot}) {
     origin?.dispose();
     tagId = id;
     origin = snapshot;
-    originShape = shape;
     nextToken();
   }
 
@@ -298,7 +269,6 @@ class CrossRouteMorphSessionStore {
     origin?.dispose();
     tagId = null;
     origin = null;
-    originShape = null;
     nextToken();
   }
 }
@@ -363,7 +333,6 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
 
     final originKey = _registry.keyFor(tagId);
     if (originKey == null) return false;
-    final originShape = _registry.shapeForKey(originKey);
     final originSnapshot = await _registry.captureByKey(
       originKey,
       options: _captureOptions,
@@ -375,7 +344,7 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
     final program = await _loadProgram();
     if (program == null || !overlayState.mounted) return false;
 
-    _session.setOrigin(id: tagId, snapshot: originSnapshot, shape: originShape);
+    _session.setOrigin(id: tagId, snapshot: originSnapshot);
     MorphSnapshot? transientDestination;
     final expectedToken = _session.token;
     GlobalKey? destinationKey;
@@ -392,8 +361,6 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
         program: program,
         source: originSnapshot,
         destination: originSnapshot,
-        sourceShape: originShape,
-        targetShape: originShape,
         direction: MorphDirection.forward,
         progress: 0.0,
       );
@@ -408,7 +375,6 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
         _setState(CrossRouteMorphState.idle);
         return false;
       }
-      final destinationShape = _registry.shapeForKey(destinationKey);
       final destinationSnapshot = await _waitForStableSnapshotByKey(
         destinationKey,
         timeout: const Duration(seconds: 3),
@@ -421,7 +387,7 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
 
       _registry.setHiddenForKey(destinationKey, hidden: true);
       _setState(CrossRouteMorphState.animatingForward);
-      _visualState?.setDestination(destinationSnapshot, destinationShape);
+      _visualState?.setDestination(destinationSnapshot);
 
       final completed = await _animateOverlay(
         direction: MorphDirection.forward,
@@ -456,10 +422,8 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
     if (!_session.hasSessionFor(tagId)) return false;
     final origin = _session.origin;
     if (origin == null) return false;
-    final originShape = _session.originShape ?? const MorphShape.rect();
     final destinationKey = _registry.keyFor(tagId);
     if (destinationKey == null) return false;
-    final destinationShape = _registry.shapeForKey(destinationKey);
 
     final destination = await _registry.captureByKey(
       destinationKey,
@@ -476,8 +440,6 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
         overlayState: overlayState,
         source: origin,
         destination: destination,
-        sourceShape: originShape,
-        targetShape: destinationShape,
         direction: MorphDirection.forward,
         expectedToken: _session.token,
       );
@@ -501,10 +463,8 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
 
     final origin = _session.origin;
     if (origin == null) return false;
-    final originShape = _session.originShape ?? const MorphShape.rect();
     final destinationKey = _registry.keyFor(tagId);
     if (destinationKey == null) return false;
-    final destinationShape = _registry.shapeForKey(destinationKey);
     final currentDestination = await _registry.captureByKey(
       destinationKey,
       options: _captureOptions,
@@ -520,8 +480,6 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
         overlayState: overlayState,
         source: currentDestination,
         destination: origin,
-        sourceShape: destinationShape,
-        targetShape: originShape,
         direction: MorphDirection.reverse,
         expectedToken: _session.token,
       );
@@ -548,11 +506,9 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
     if (_state != CrossRouteMorphState.atDestination) return false;
     final origin = _session.origin;
     if (origin == null) return false;
-    final originShape = _session.originShape ?? const MorphShape.rect();
 
     final destinationKey = _registry.keyFor(tagId);
     if (destinationKey == null) return false;
-    final destinationShape = _registry.shapeForKey(destinationKey);
     final destinationSnapshot = await _registry.captureByKey(
       destinationKey,
       options: _captureOptions,
@@ -581,8 +537,6 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
         program: program,
         source: destinationSnapshot,
         destination: origin,
-        sourceShape: destinationShape,
-        targetShape: originShape,
         direction: MorphDirection.reverse,
         progress: 0.0,
       );
@@ -630,8 +584,6 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
     required OverlayState overlayState,
     required MorphSnapshot source,
     required MorphSnapshot destination,
-    required MorphShape sourceShape,
-    required MorphShape targetShape,
     required MorphDirection direction,
     required int expectedToken,
   }) async {
@@ -645,8 +597,6 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
         program: program,
         source: source,
         destination: destination,
-        sourceShape: sourceShape,
-        targetShape: targetShape,
         direction: direction,
         progress: 0.0,
       );
@@ -673,8 +623,6 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
     required ui.FragmentProgram program,
     required MorphSnapshot source,
     required MorphSnapshot destination,
-    required MorphShape sourceShape,
-    required MorphShape targetShape,
     required MorphDirection direction,
     required double progress,
   }) {
@@ -682,8 +630,6 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
     _visualState = _CrossRouteVisualState(
       source: source,
       destination: destination,
-      sourceShape: sourceShape,
-      targetShape: targetShape,
       direction: direction,
       progress: progress,
     );
@@ -704,8 +650,6 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
                   transitionConfig: transitionConfig,
                   source: state.source,
                   destination: state.destination,
-                  sourceShape: state.sourceShape,
-                  targetShape: state.targetShape,
                   progress: state.progress,
                   direction: state.direction,
                 ),
@@ -826,16 +770,20 @@ class ShaderMorphCrossRouteEngine extends ChangeNotifier {
       }
       _v1Program = bundle.v1Program;
       final v2Program = bundle.v2Program;
+      final styleProgram =
+          transitionConfig.shaderStyle == MorphShaderStyle.shapeAware
+          ? (bundle.shapeAwareProgram ?? v2Program)
+          : v2Program;
 
       final config = MorphRuntimeConfig.current;
       maybeLogRuntimeDeprecations(config);
-      if (config.enableV2ShadowBindWhenV1 && v2Program != null) {
-        _v2ShadowShader = v2Program.fragmentShader();
+      if (config.enableV2ShadowBindWhenV1 && styleProgram != null) {
+        _v2ShadowShader = styleProgram.fragmentShader();
       }
-      _v2RenderShader = config.useV2CrossRouteRender && v2Program != null
-          ? v2Program.fragmentShader()
+      _v2RenderShader = config.useV2CrossRouteRender && styleProgram != null
+          ? styleProgram.fragmentShader()
           : null;
-      _program = v2Program ?? _v1Program;
+      _program = styleProgram ?? _v1Program;
       return _program;
     } catch (_) {
       return null;
@@ -868,8 +816,6 @@ class _CrossRouteMorphPainter extends CustomPainter {
   final MorphTransitionConfig transitionConfig;
   final MorphSnapshot source;
   final MorphSnapshot destination;
-  final MorphShape sourceShape;
-  final MorphShape targetShape;
   final double progress;
   final MorphDirection direction;
   static const double _paintBleedPx = 16.0;
@@ -883,8 +829,6 @@ class _CrossRouteMorphPainter extends CustomPainter {
     required this.transitionConfig,
     required this.source,
     required this.destination,
-    required this.sourceShape,
-    required this.targetShape,
     required this.progress,
     required this.direction,
   });
@@ -898,8 +842,6 @@ class _CrossRouteMorphPainter extends CustomPainter {
       targetRect: destination,
       progress: shapedProgress,
       morphStyle: transitionConfig.shaderStyleIndex,
-      sourceShape: sourceShape,
-      targetShape: targetShape,
       // RuntimeEffect fragment coordinates are logical-canvas space.
       usePhysicalResolution: false,
     );
@@ -956,8 +898,6 @@ class _CrossRouteMorphPainter extends CustomPainter {
     return oldDelegate.progress != progress ||
         oldDelegate.source != source ||
         oldDelegate.destination != destination ||
-        oldDelegate.sourceShape != sourceShape ||
-        oldDelegate.targetShape != targetShape ||
         oldDelegate.direction != direction;
   }
 }
@@ -965,23 +905,18 @@ class _CrossRouteMorphPainter extends CustomPainter {
 class _CrossRouteVisualState extends ChangeNotifier {
   MorphSnapshot source;
   MorphSnapshot destination;
-  MorphShape sourceShape;
-  MorphShape targetShape;
   MorphDirection direction;
   double progress;
 
   _CrossRouteVisualState({
     required this.source,
     required this.destination,
-    required this.sourceShape,
-    required this.targetShape,
     required this.direction,
     required this.progress,
   });
 
-  void setDestination(MorphSnapshot next, MorphShape shape) {
+  void setDestination(MorphSnapshot next) {
     destination = next;
-    targetShape = shape;
     notifyListeners();
   }
 

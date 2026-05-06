@@ -163,7 +163,6 @@ Configuration:
 - `MorphTransitionConfig`
 - `MorphInterpolation`
 - `MorphShaderStyle`
-- `MorphShape`
 - `MorphShadowCapturePolicy`
 - `ShaderMorphPolicy`
 - `BackPopMode`
@@ -172,20 +171,18 @@ Configuration:
 
 The default `MorphShaderStyle.standard` remains the stable everyday style.
 For shape-heavy transitions, `MorphShaderStyle.shapeAware` is available as an
-experimental style that uses endpoint shape hints while it animates.
+experimental style that uses the captured widget silhouettes while it animates.
 
 ```dart
 ShaderMorphTag(
   id: 'profile_card',
   role: ShaderMorphRole.origin,
-  shape: const MorphShape.circle(),
   child: const SourceAvatar(),
 )
 
 ShaderMorphTag(
   id: 'profile_card',
   role: ShaderMorphRole.destination,
-  shape: const MorphShape.roundedRect(radius: 28),
   child: const ProfileCard(),
 )
 ```
@@ -199,12 +196,8 @@ const MorphTransitionConfig(
 )
 ```
 
-Supported shape hints:
-
-- `MorphShape.rect()`
-- `MorphShape.roundedRect(radius: ...)`
-- `MorphShape.circle()`
-- `MorphShape.stadium()`
+Shape information is derived from the captured endpoint textures. Users do not
+need to declare whether a tagged widget is a card, circle, or rounded rectangle.
 
 ## Performance Policy
 

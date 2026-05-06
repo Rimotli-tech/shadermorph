@@ -18,11 +18,9 @@
     overlay animation.
 - Added experimental shape-aware morph support:
   - `MorphShaderStyle.shapeAware`
-  - `MorphShape.rect()`
-  - `MorphShape.roundedRect(radius: ...)`
-  - `MorphShape.circle()`
-  - `MorphShape.stadium()`
-  - shape metadata is packed into the shader protocol while
+  - a dedicated shape-aware shader asset
+  - captured endpoint silhouettes drive shape blending under the hood
+  - protocol shape metadata remains available internally while
     `MorphShaderStyle.standard` remains unchanged.
 - Added publish metadata:
   - repository

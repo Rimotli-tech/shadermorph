@@ -138,32 +138,6 @@ void main() {
     expect(MorphTagRegistry.instance.keyFor('route-tag'), isNotNull);
   });
 
-  testWidgets('ShaderMorphTag registers shape for cross-route capture', (
-    WidgetTester tester,
-  ) async {
-    MorphTagRegistry.instance.clearForTesting();
-
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: ShaderMorphTag(
-            id: 'shape-tag',
-            role: ShaderMorphRole.origin,
-            shape: MorphShape.circle(),
-            child: Text('route source'),
-          ),
-        ),
-      ),
-    );
-
-    final key = MorphTagRegistry.instance.keyFor('shape-tag');
-    expect(key, isNotNull);
-    expect(
-      MorphTagRegistry.instance.shapeForKey(key!),
-      const MorphShape.circle(),
-    );
-  });
-
   testWidgets('pushTo can push without ShaderMorphHost', (
     WidgetTester tester,
   ) async {

@@ -5,8 +5,8 @@ This example demonstrates the current preferred ShaderMorph APIs:
 - Single-page morphs with `ShaderMorphHost` and `ShaderMorphTag`.
 - Host-free cross-route morphs with `ShaderMorphTag(pushTo: ...)`.
 - Reverse route morphs with `ShaderMorph.reverseAndPop(...)`.
-- Optional endpoint shape hints with `MorphShape` and the experimental
-  `MorphShaderStyle.shapeAware` style.
+- The experimental `MorphShaderStyle.shapeAware` style, which uses captured
+  endpoint silhouettes without shape declarations.
 
 ## What This Example Covers
 
@@ -18,7 +18,6 @@ Single-page:
 - `ShaderMorphHost.of(context).reverseByTag(...)`
 - `ShaderMorphTrigger.onTapForward`
 - `ShaderMorphTrigger.onTapReverse`
-- `MorphShape`
 
 Cross-route:
 
@@ -29,9 +28,9 @@ Cross-route:
 Shape-aware development:
 
 - Keep `MorphShaderStyle.standard` for the stable default transition.
-- Try `MorphShaderStyle.shapeAware` with endpoint hints like
-  `MorphShape.circle()` and `MorphShape.roundedRect(radius: ...)` when
-  validating circle-to-card or card-to-avatar transitions.
+- Try `MorphShaderStyle.shapeAware` when validating circle-to-card or
+  card-to-avatar transitions. The style reads the captured endpoint silhouettes
+  under the hood.
 
 ## Run
 

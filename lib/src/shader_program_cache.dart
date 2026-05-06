@@ -4,10 +4,12 @@ import 'dart:ui' as ui;
 class ShaderMorphProgramBundle {
   final ui.FragmentProgram v1Program;
   final ui.FragmentProgram? v2Program;
+  final ui.FragmentProgram? shapeAwareProgram;
 
   const ShaderMorphProgramBundle({
     required this.v1Program,
     required this.v2Program,
+    required this.shapeAwareProgram,
   });
 }
 
@@ -47,7 +49,19 @@ class ShaderMorphProgramCache {
       } catch (_) {
         // Keep fallback availability if V2 cannot load.
       }
-      final bundle = ShaderMorphProgramBundle(v1Program: v1, v2Program: v2);
+      ui.FragmentProgram? shapeAware;
+      try {
+        shapeAware = await ui.FragmentProgram.fromAsset(
+          'packages/shadermorph_flutter/shaders/shader_engine_shape_aware.frag',
+        );
+      } catch (_) {
+        // Keep the shared V2 engine available if this style shader cannot load.
+      }
+      final bundle = ShaderMorphProgramBundle(
+        v1Program: v1,
+        v2Program: v2,
+        shapeAwareProgram: shapeAware,
+      );
       _cached = bundle;
       return bundle;
     } catch (_) {
