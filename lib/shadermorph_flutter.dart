@@ -5,6 +5,7 @@
 // - Cross-route morph orchestration with ShaderMorph
 // - Metadata, capture, and transition configuration types
 export 'src/models.dart';
+export 'src/metadata.dart';
 export 'src/cross_route.dart';
 export 'src/policy.dart';
 export 'src/shape.dart';

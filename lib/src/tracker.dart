@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'models.dart';
-import 'models_v2.dart';
+import 'metadata.dart';
 
 class MorphCaptureOptions {
   final MorphShadowCapturePolicy shadowPolicy;
@@ -165,7 +165,7 @@ class MorphTracker {
     );
   }
 
-  static MorphRectNormV2 normalizePhysicalRectToV2({
+  static MorphRectNorm normalizePhysicalRect({
     required Rect physicalRect,
     required Size resolutionPx,
     bool clampToUnit = false,
@@ -174,10 +174,10 @@ class MorphTracker {
         !resolutionPx.height.isFinite ||
         resolutionPx.width <= 0.0 ||
         resolutionPx.height <= 0.0) {
-      return MorphRectNormV2.zero;
+      return MorphRectNorm.zero;
     }
 
-    final normalized = MorphRectNormV2(
+    final normalized = MorphRectNorm(
       x: physicalRect.left / resolutionPx.width,
       y: physicalRect.top / resolutionPx.height,
       w: physicalRect.width / resolutionPx.width,
@@ -190,14 +190,14 @@ class MorphTracker {
     return normalized.clampedToUnit();
   }
 
-  static MorphRectNormV2 normalizeLogicalRectToV2({
+  static MorphRectNorm normalizeLogicalRect({
     required Rect logicalRect,
     required Size logicalResolution,
     required double devicePixelRatio,
     bool clampToUnit = false,
   }) {
     if (!devicePixelRatio.isFinite || devicePixelRatio <= 0.0) {
-      return MorphRectNormV2.zero;
+      return MorphRectNorm.zero;
     }
 
     final physicalRect = logicalRectToPhysicalRect(
@@ -209,7 +209,7 @@ class MorphTracker {
       devicePixelRatio: devicePixelRatio,
     );
 
-    return normalizePhysicalRectToV2(
+    return normalizePhysicalRect(
       physicalRect: physicalRect,
       resolutionPx: physicalResolution,
       clampToUnit: clampToUnit,

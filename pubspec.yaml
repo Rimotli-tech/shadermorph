@@ -27,5 +27,4 @@ dev_dependencies:
 flutter:
   shaders:
     - shaders/shader_engine.frag
-    - shaders/shader_engine_v2.frag
     - shaders/shader_engine_shape_aware.frag

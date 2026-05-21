@@ -1,54 +1,24 @@
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 import 'models.dart';
-import 'models_v2.dart';
+import 'metadata.dart';
 import 'shape.dart';
 import 'tracker.dart';
 
 class MorphCoordinator {
-  static const int _v2SourceBase = MorphProtocolV2Constants.scalarFloatCount;
-  static const int _v2TargetBase =
-      _v2SourceBase + MorphProtocolV2Constants.rectFloatCountPerSide;
-  static const int _v2SourceShapeBase =
-      _v2TargetBase + MorphProtocolV2Constants.rectFloatCountPerSide;
-  static const int _v2TargetShapeBase =
-      _v2SourceShapeBase + MorphProtocolV2Constants.shapeFloatCountPerSide;
+  static const int _sourceBase = MorphProtocolConstants.scalarFloatCount;
+  static const int _targetBase =
+      _sourceBase + MorphProtocolConstants.rectFloatCountPerSide;
+  static const int _sourceShapeBase =
+      _targetBase + MorphProtocolConstants.rectFloatCountPerSide;
+  static const int _targetShapeBase =
+      _sourceShapeBase + MorphProtocolConstants.shapeFloatCountPerSide;
 
-  static void setUniforms({
-    required ui.FragmentShader shader,
-    required Size viewport,
-    required MorphSnapshot sourceRect,
-    required MorphSnapshot targetRect,
-    required double time,
-    required double progress,
-  }) {
-    // Viewport Size
-    shader.setFloat(0, viewport.width);
-    shader.setFloat(1, viewport.height);
-
-    // Global Coordinates (Exact match to tracker)
-    shader.setFloat(2, sourceRect.rect.left);
-    shader.setFloat(3, sourceRect.rect.top);
-    shader.setFloat(4, sourceRect.rect.width);
-    shader.setFloat(5, sourceRect.rect.height);
-
-    shader.setFloat(6, targetRect.rect.left);
-    shader.setFloat(7, targetRect.rect.top);
-    shader.setFloat(8, targetRect.rect.width);
-    shader.setFloat(9, targetRect.rect.height);
-
-    shader.setFloat(10, time);
-    shader.setFloat(11, progress);
-
-    shader.setImageSampler(0, sourceRect.image);
-    shader.setImageSampler(1, targetRect.image);
-  }
-
-  static List<double> packV2UniformFloats({
-    required MorphFrameMetadataV2 metadata,
+  static List<double> packUniformFloats({
+    required MorphFrameMetadata metadata,
   }) {
     final packed = List<double>.filled(
-      MorphProtocolV2Constants.totalFloatCount,
+      MorphProtocolConstants.totalFloatCount,
       0.0,
       growable: false,
     );
@@ -64,29 +34,29 @@ class MorphCoordinator {
     final sourceShapes = metadata.sourceShapesFixed8;
     final targetShapes = metadata.targetShapesFixed8;
 
-    for (var i = 0; i < MorphProtocolV2Constants.maxPairs; i += 1) {
-      final sourceOffset = _v2SourceBase + (i * 4);
+    for (var i = 0; i < MorphProtocolConstants.maxPairs; i += 1) {
+      final sourceOffset = _sourceBase + (i * 4);
       final source = sources[i];
       packed[sourceOffset] = source.x;
       packed[sourceOffset + 1] = source.y;
       packed[sourceOffset + 2] = source.w;
       packed[sourceOffset + 3] = source.h;
 
-      final targetOffset = _v2TargetBase + (i * 4);
+      final targetOffset = _targetBase + (i * 4);
       final target = targets[i];
       packed[targetOffset] = target.x;
       packed[targetOffset + 1] = target.y;
       packed[targetOffset + 2] = target.w;
       packed[targetOffset + 3] = target.h;
 
-      final sourceShapeOffset = _v2SourceShapeBase + (i * 4);
+      final sourceShapeOffset = _sourceShapeBase + (i * 4);
       final sourceShape = sourceShapes[i];
       packed[sourceShapeOffset] = sourceShape.type;
       packed[sourceShapeOffset + 1] = sourceShape.radiusRatio;
       packed[sourceShapeOffset + 2] = sourceShape.reserved0;
       packed[sourceShapeOffset + 3] = sourceShape.reserved1;
 
-      final targetShapeOffset = _v2TargetShapeBase + (i * 4);
+      final targetShapeOffset = _targetShapeBase + (i * 4);
       final targetShape = targetShapes[i];
       packed[targetShapeOffset] = targetShape.type;
       packed[targetShapeOffset + 1] = targetShape.radiusRatio;
@@ -97,17 +67,17 @@ class MorphCoordinator {
     return List<double>.unmodifiable(packed);
   }
 
-  static void setUniformsV2Packed({
+  static void setUniforms({
     required ui.FragmentShader shader,
-    required MorphFrameMetadataV2 metadata,
+    required MorphFrameMetadata metadata,
   }) {
-    final packed = packV2UniformFloats(metadata: metadata);
+    final packed = packUniformFloats(metadata: metadata);
     for (var i = 0; i < packed.length; i += 1) {
       shader.setFloat(i, packed[i]);
     }
   }
 
-  static MorphFrameMetadataV2 buildSinglePairMetadataV2({
+  static MorphFrameMetadata buildSinglePairMetadata({
     required Size logicalViewport,
     required MorphSnapshot sourceRect,
     required MorphSnapshot targetRect,
@@ -119,13 +89,13 @@ class MorphCoordinator {
     bool usePhysicalResolution = true,
   }) {
     final dpr = sourceRect.pixelRatio;
-    final sourceNorm = MorphTracker.normalizeLogicalRectToV2(
+    final sourceNorm = MorphTracker.normalizeLogicalRect(
       logicalRect: sourceRect.rect,
       logicalResolution: logicalViewport,
       devicePixelRatio: dpr,
       clampToUnit: clampRectsToUnit,
     );
-    final targetNorm = MorphTracker.normalizeLogicalRectToV2(
+    final targetNorm = MorphTracker.normalizeLogicalRect(
       logicalRect: targetRect.rect,
       logicalResolution: logicalViewport,
       devicePixelRatio: dpr,
@@ -139,19 +109,19 @@ class MorphCoordinator {
           )
         : logicalViewport;
 
-    return MorphFrameMetadataV2(
+    return MorphFrameMetadata(
       resolutionPx: resolution,
       progress: progress,
       morphStyle: morphStyle,
-      pairs: <MorphPairRectsV2>[
-        MorphPairRectsV2(
+      pairs: <MorphPairRects>[
+        MorphPairRects(
           source: sourceNorm,
           target: targetNorm,
-          sourceShape: MorphShapeDataV2.fromShape(
+          sourceShape: MorphShapeData.fromShape(
             shape: sourceShape,
             logicalRect: sourceRect.rect,
           ),
-          targetShape: MorphShapeDataV2.fromShape(
+          targetShape: MorphShapeData.fromShape(
             shape: targetShape,
             logicalRect: targetRect.rect,
           ),

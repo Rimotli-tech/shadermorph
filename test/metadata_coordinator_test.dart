@@ -3,23 +3,23 @@ import 'dart:ui' show Canvas, Image, Paint, PictureRecorder, Rect, Size;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shadermorph_flutter/src/coordinator.dart';
 import 'package:shadermorph_flutter/src/models.dart';
-import 'package:shadermorph_flutter/src/models_v2.dart';
+import 'package:shadermorph_flutter/src/metadata.dart';
 import 'package:shadermorph_flutter/src/shape.dart';
 
-MorphPairRectsV2 _pair({
+MorphPairRects _pair({
   required double sourceBase,
   required double targetBase,
-  MorphShapeDataV2 sourceShape = MorphShapeDataV2.rect,
-  MorphShapeDataV2 targetShape = MorphShapeDataV2.rect,
+  MorphShapeData sourceShape = MorphShapeData.rect,
+  MorphShapeData targetShape = MorphShapeData.rect,
 }) {
-  return MorphPairRectsV2(
-    source: MorphRectNormV2(
+  return MorphPairRects(
+    source: MorphRectNorm(
       x: sourceBase + 0.01,
       y: sourceBase + 0.02,
       w: sourceBase + 0.03,
       h: sourceBase + 0.04,
     ),
-    target: MorphRectNormV2(
+    target: MorphRectNorm(
       x: targetBase + 0.01,
       y: targetBase + 0.02,
       w: targetBase + 0.03,
@@ -31,25 +31,25 @@ MorphPairRectsV2 _pair({
 }
 
 void main() {
-  test('packV2UniformFloats follows strict protocol float order', () {
-    final metadata = MorphFrameMetadataV2(
+  test('packUniformFloats follows strict protocol float order', () {
+    final metadata = MorphFrameMetadata(
       resolutionPx: const Size(1920, 1080),
       progress: 0.75,
       morphStyle: 4,
-      pairs: <MorphPairRectsV2>[
+      pairs: <MorphPairRects>[
         _pair(
           sourceBase: 1.0,
           targetBase: 10.0,
-          sourceShape: const MorphShapeDataV2(type: 2.0, radiusRatio: 0.5),
-          targetShape: const MorphShapeDataV2(type: 1.0, radiusRatio: 0.2),
+          sourceShape: const MorphShapeData(type: 2.0, radiusRatio: 0.5),
+          targetShape: const MorphShapeData(type: 1.0, radiusRatio: 0.2),
         ),
         _pair(sourceBase: 2.0, targetBase: 20.0),
       ],
     );
 
-    final packed = MorphCoordinator.packV2UniformFloats(metadata: metadata);
+    final packed = MorphCoordinator.packUniformFloats(metadata: metadata);
 
-    expect(packed.length, MorphProtocolV2Constants.totalFloatCount);
+    expect(packed.length, MorphProtocolConstants.totalFloatCount);
 
     expect(packed[0], 1920.0);
     expect(packed[1], 1080.0);
@@ -96,12 +96,12 @@ void main() {
     }
   });
 
-  test('packV2UniformFloats truncates pairs beyond MAX_PAIRS', () {
-    final pairs = List<MorphPairRectsV2>.generate(
+  test('packUniformFloats truncates pairs beyond MAX_PAIRS', () {
+    final pairs = List<MorphPairRects>.generate(
       10,
-      (i) => MorphPairRectsV2(
-        source: MorphRectNormV2(x: i + 0.1, y: i + 0.2, w: i + 0.3, h: i + 0.4),
-        target: MorphRectNormV2(
+      (i) => MorphPairRects(
+        source: MorphRectNorm(x: i + 0.1, y: i + 0.2, w: i + 0.3, h: i + 0.4),
+        target: MorphRectNorm(
           x: i + 10.1,
           y: i + 10.2,
           w: i + 10.3,
@@ -109,14 +109,14 @@ void main() {
         ),
       ),
     );
-    final metadata = MorphFrameMetadataV2(
+    final metadata = MorphFrameMetadata(
       resolutionPx: const Size(100, 200),
       progress: 0.1,
       morphStyle: 2,
       pairs: pairs,
     );
 
-    final packed = MorphCoordinator.packV2UniformFloats(metadata: metadata);
+    final packed = MorphCoordinator.packUniformFloats(metadata: metadata);
 
     expect(packed[3], 8.0);
 
@@ -138,8 +138,8 @@ void main() {
     expect(packed[targetShapeIndex7], 0.0);
   });
 
-  test('buildSinglePairMetadataV2 converts logical snapshots with DPR', () {
-    final metadata = MorphCoordinator.buildSinglePairMetadataV2(
+  test('buildSinglePairMetadata converts logical snapshots with DPR', () {
+    final metadata = MorphCoordinator.buildSinglePairMetadata(
       logicalViewport: const Size(100, 200),
       sourceRect: MorphSnapshot(
         image: _tinyImage(),
@@ -165,8 +165,8 @@ void main() {
     final source = metadata.sourceRectsFixed8.first;
     final target = metadata.targetRectsFixed8.first;
 
-    expect(source, const MorphRectNormV2(x: 0.1, y: 0.1, w: 0.3, h: 0.2));
-    expect(target, const MorphRectNormV2(x: 0.2, y: 0.2, w: 0.1, h: 0.1));
+    expect(source, const MorphRectNorm(x: 0.1, y: 0.1, w: 0.3, h: 0.2));
+    expect(target, const MorphRectNorm(x: 0.2, y: 0.2, w: 0.1, h: 0.1));
     expect(metadata.sourceShapesFixed8.first.type, 2.0);
     expect(metadata.sourceShapesFixed8.first.radiusRatio, 0.5);
     expect(metadata.targetShapesFixed8.first.type, 1.0);
@@ -174,9 +174,9 @@ void main() {
   });
 
   test(
-    'buildSinglePairMetadataV2 can use logical resolution for shader space',
+    'buildSinglePairMetadata can use logical resolution for shader space',
     () {
-      final metadata = MorphCoordinator.buildSinglePairMetadataV2(
+      final metadata = MorphCoordinator.buildSinglePairMetadata(
         logicalViewport: const Size(100, 200),
         sourceRect: MorphSnapshot(
           image: _tinyImage(),
@@ -196,11 +196,11 @@ void main() {
       expect(metadata.resolutionPx, const Size(100, 200));
       expect(
         metadata.sourceRectsFixed8.first,
-        const MorphRectNormV2(x: 0.1, y: 0.1, w: 0.3, h: 0.2),
+        const MorphRectNorm(x: 0.1, y: 0.1, w: 0.3, h: 0.2),
       );
       expect(
         metadata.targetRectsFixed8.first,
-        const MorphRectNormV2(x: 0.2, y: 0.2, w: 0.1, h: 0.1),
+        const MorphRectNorm(x: 0.2, y: 0.2, w: 0.1, h: 0.1),
       );
     },
   );

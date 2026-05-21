@@ -12,13 +12,12 @@ same-page and cross-route morph animations.
 - `lib/src/policy.dart` - manual animation allow/suppress policy.
 - `lib/src/shape.dart` - internal endpoint shape metadata scaffold for
   shape-aware styles.
-- `lib/src/models.dart` and `lib/src/models_v2.dart` - snapshots and metadata.
+- `lib/src/models.dart` and `lib/src/metadata.dart` - snapshots and metadata.
 - `lib/src/coordinator.dart` - uniform binding and metadata packing.
 - `lib/src/tracker.dart` - widget capture, capture layers, and normalization.
-- `lib/src/runtime_config.dart` - runtime environment switches.
 - `lib/src/shader_program_cache.dart` - shared shader program cache.
 - `shaders/` - fragment shaders.
-- `doc/metadata_protocol_v2.md` - low-level shader metadata contract.
+- `doc/metadata_protocol.md` - low-level shader metadata contract.
 - `example/lib/main.dart` - current preferred API demo.
 - `test/*.dart` - API, metadata, policy, registry, and visual regression tests.
 

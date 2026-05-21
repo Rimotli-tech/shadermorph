@@ -2,13 +2,11 @@ import 'dart:ui' as ui;
 
 /// Shared process-wide shader cache used by host and cross-route engines.
 class ShaderMorphProgramBundle {
-  final ui.FragmentProgram v1Program;
-  final ui.FragmentProgram? v2Program;
+  final ui.FragmentProgram program;
   final ui.FragmentProgram? shapeAwareProgram;
 
   const ShaderMorphProgramBundle({
-    required this.v1Program,
-    required this.v2Program,
+    required this.program,
     required this.shapeAwareProgram,
   });
 }
@@ -38,28 +36,19 @@ class ShaderMorphProgramCache {
 
   static Future<ShaderMorphProgramBundle?> _loadBundle() async {
     try {
-      final v1 = await ui.FragmentProgram.fromAsset(
+      final program = await ui.FragmentProgram.fromAsset(
         'packages/shadermorph_flutter/shaders/shader_engine.frag',
       );
-      ui.FragmentProgram? v2;
-      try {
-        v2 = await ui.FragmentProgram.fromAsset(
-          'packages/shadermorph_flutter/shaders/shader_engine_v2.frag',
-        );
-      } catch (_) {
-        // Keep fallback availability if V2 cannot load.
-      }
       ui.FragmentProgram? shapeAware;
       try {
         shapeAware = await ui.FragmentProgram.fromAsset(
           'packages/shadermorph_flutter/shaders/shader_engine_shape_aware.frag',
         );
       } catch (_) {
-        // Keep the shared V2 engine available if this style shader cannot load.
+        // Keep the shared engine available if this style shader cannot load.
       }
       final bundle = ShaderMorphProgramBundle(
-        v1Program: v1,
-        v2Program: v2,
+        program: program,
         shapeAwareProgram: shapeAware,
       );
       _cached = bundle;

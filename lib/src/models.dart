@@ -12,8 +12,10 @@ enum MorphDirection { forward, reverse }
 class MorphSnapshot {
   /// The captured raster image for the endpoint.
   final ui.Image image;
+
   /// The captured endpoint rect in logical pixels.
   final Rect rect;
+
   /// Device pixel ratio used when the snapshot was captured.
   final double pixelRatio;
   bool _disposed = false;
@@ -49,6 +51,7 @@ class MorphSnapshot {
 class MorphPairSnapshot {
   /// Origin endpoint snapshot used for the current morph.
   final MorphSnapshot origin;
+
   /// Destination endpoint snapshot used for the current morph.
   final MorphSnapshot destination;
   bool _disposed = false;
