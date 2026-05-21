@@ -81,7 +81,7 @@ float alphaAt(sampler2D tex, vec2 uv) {
   if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) {
     return 0.0;
   }
-  return texture(tex, vec2(uv.x, 1.0 - uv.y)).a;
+  return texture(tex, uv).a;
 }
 
 float sampledAlphaSdf(sampler2D tex, vec2 uv) {
@@ -225,11 +225,11 @@ vec4 samplePairColor(
   vec2 targetColorUv = flowWarp(targetSampleUv, direction, 1.0 - rawT, 0.018);
   vec4 sourceColor = texture(
     uTexture,
-    vec2(clamp(sourceColorUv.x, 0.0, 1.0), 1.0 - clamp(sourceColorUv.y, 0.0, 1.0))
+    clamp(sourceColorUv, vec2(0.0), vec2(1.0))
   );
   vec4 targetColor = texture(
     uTargetTexture,
-    vec2(clamp(targetColorUv.x, 0.0, 1.0), 1.0 - clamp(targetColorUv.y, 0.0, 1.0))
+    clamp(targetColorUv, vec2(0.0), vec2(1.0))
   );
   vec4 mixed = mix(sourceColor, targetColor, colorMix);
 

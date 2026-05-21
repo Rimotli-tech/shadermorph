@@ -267,7 +267,6 @@ vec4 samplePairColor(
     return vec4(0.0);
   }
   localUv = clamp(localUv, vec2(0.0), vec2(1.0));
-  localUv.y = 1.0 - localUv.y;
 
   vec4 sourceColor = texture(uTexture, localUv);
   vec4 targetColor = texture(uTargetTexture, localUv);
@@ -304,6 +303,6 @@ void main() {
   }
 
   // Keep background UV clamped as protocol safety rule.
-  vec4 _unusedBg = texture(uTexture, vec2(backgroundUv.x, 1.0 - backgroundUv.y));
+  vec4 _unusedBg = texture(uTexture, backgroundUv);
   fragColor = color;
 }
