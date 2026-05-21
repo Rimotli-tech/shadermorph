@@ -75,7 +75,7 @@ void main() {
     expect(clamped, const MorphRectNorm(x: 0.0, y: 1.0, w: 1.0, h: 0.0));
   });
 
-  test('metadata preserves provided pair ordering', () {
+  test('metadata sorts named pairs by id before packing', () {
     final metadata = MorphFrameMetadata(
       resolutionPx: const Size(1080, 1920),
       progress: 0.9,
@@ -88,8 +88,26 @@ void main() {
     );
 
     final sources = metadata.sourceRectsFixed8;
-    expect(sources[0].x, 2.0);
-    expect(sources[1].x, 1.0);
+    expect(sources[0].x, 1.0);
+    expect(sources[1].x, 2.0);
+    expect(sources[2].x, 3.0);
+  });
+
+  test('unnamed pairs keep caller ordering after named pairs', () {
+    final metadata = MorphFrameMetadata(
+      resolutionPx: const Size(1080, 1920),
+      progress: 0.9,
+      morphStyle: 3,
+      pairs: <MorphPairRects>[
+        _pair(3.0),
+        _pair(2.0, id: 'b'),
+        _pair(1.0, id: 'a'),
+      ],
+    );
+
+    final sources = metadata.sourceRectsFixed8;
+    expect(sources[0].x, 1.0);
+    expect(sources[1].x, 2.0);
     expect(sources[2].x, 3.0);
   });
 

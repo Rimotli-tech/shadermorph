@@ -150,6 +150,33 @@ class MorphFrameMetadata {
   /// Number of active pairs, capped to [MorphProtocolConstants.maxPairs].
   int get pairCount => math.min(pairs.length, MorphProtocolConstants.maxPairs);
 
+  /// Pairs in deterministic protocol packing order.
+  ///
+  /// Named pairs are sorted lexicographically by id before truncation. Unnamed
+  /// pairs are kept after named pairs in their caller-provided order, which
+  /// preserves single-pair and synthetic test metadata that has no tag id.
+  List<MorphPairRects> get pairsForPacking {
+    final indexed = List<_IndexedMorphPair>.generate(
+      pairs.length,
+      (index) => _IndexedMorphPair(index: index, pair: pairs[index]),
+      growable: false,
+    );
+    indexed.sort((a, b) {
+      final aId = a.pair.id;
+      final bId = b.pair.id;
+      if (aId == null && bId == null) {
+        return a.index.compareTo(b.index);
+      }
+      if (aId == null) return 1;
+      if (bId == null) return -1;
+      final byId = aId.compareTo(bId);
+      return byId == 0 ? a.index.compareTo(b.index) : byId;
+    });
+    return List<MorphPairRects>.unmodifiable(
+      indexed.map((entry) => entry.pair),
+    );
+  }
+
   /// Fixed-size source rect array used by the packed shader contract.
   List<MorphRectNorm> get sourceRectsFixed8 =>
       _buildFixedRects((pair) => pair.source);
@@ -175,8 +202,9 @@ class MorphFrameMetadata {
       growable: false,
     );
     final capped = pairCount;
+    final orderedPairs = pairsForPacking;
     for (var i = 0; i < capped; i += 1) {
-      fixed[i] = selector(pairs[i]);
+      fixed[i] = selector(orderedPairs[i]);
     }
     return List<MorphRectNorm>.unmodifiable(fixed);
   }
@@ -190,11 +218,19 @@ class MorphFrameMetadata {
       growable: false,
     );
     final capped = pairCount;
+    final orderedPairs = pairsForPacking;
     for (var i = 0; i < capped; i += 1) {
-      fixed[i] = selector(pairs[i]);
+      fixed[i] = selector(orderedPairs[i]);
     }
     return List<MorphShapeData>.unmodifiable(fixed);
   }
+}
+
+class _IndexedMorphPair {
+  final int index;
+  final MorphPairRects pair;
+
+  const _IndexedMorphPair({required this.index, required this.pair});
 }
 
 /// Constants for the deterministic Morph protocol float layout.

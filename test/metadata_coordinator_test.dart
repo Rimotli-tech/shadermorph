@@ -11,8 +11,10 @@ MorphPairRects _pair({
   required double targetBase,
   MorphShapeData sourceShape = MorphShapeData.rect,
   MorphShapeData targetShape = MorphShapeData.rect,
+  String? id,
 }) {
   return MorphPairRects(
+    id: id,
     source: MorphRectNorm(
       x: sourceBase + 0.01,
       y: sourceBase + 0.02,
@@ -96,10 +98,34 @@ void main() {
     }
   });
 
+  test('packUniformFloats sorts named pairs by id before truncation', () {
+    final pairs = <MorphPairRects>[
+      _pair(sourceBase: 3.0, targetBase: 30.0, id: 'c'),
+      _pair(sourceBase: 1.0, targetBase: 10.0, id: 'a'),
+      _pair(sourceBase: 2.0, targetBase: 20.0, id: 'b'),
+    ];
+    final metadata = MorphFrameMetadata(
+      resolutionPx: const Size(100, 200),
+      progress: 0.1,
+      morphStyle: 2,
+      pairs: pairs,
+    );
+
+    final packed = MorphCoordinator.packUniformFloats(metadata: metadata);
+
+    expect(packed[5], 1.01);
+    expect(packed[9], 2.01);
+    expect(packed[13], 3.01);
+    expect(packed[37], 10.01);
+    expect(packed[41], 20.01);
+    expect(packed[45], 30.01);
+  });
+
   test('packUniformFloats truncates pairs beyond MAX_PAIRS', () {
     final pairs = List<MorphPairRects>.generate(
       10,
       (i) => MorphPairRects(
+        id: String.fromCharCode('j'.codeUnitAt(0) - i),
         source: MorphRectNorm(x: i + 0.1, y: i + 0.2, w: i + 0.3, h: i + 0.4),
         target: MorphRectNorm(
           x: i + 10.1,
@@ -121,16 +147,16 @@ void main() {
     expect(packed[3], 8.0);
 
     final sourceIndex7 = 5 + (7 * 4);
-    expect(packed[sourceIndex7], 7.1);
-    expect(packed[sourceIndex7 + 1], 7.2);
-    expect(packed[sourceIndex7 + 2], 7.3);
-    expect(packed[sourceIndex7 + 3], 7.4);
+    expect(packed[sourceIndex7], 2.1);
+    expect(packed[sourceIndex7 + 1], 2.2);
+    expect(packed[sourceIndex7 + 2], 2.3);
+    expect(packed[sourceIndex7 + 3], 2.4);
 
     final targetIndex7 = 37 + (7 * 4);
-    expect(packed[targetIndex7], 17.1);
-    expect(packed[targetIndex7 + 1], 17.2);
-    expect(packed[targetIndex7 + 2], 17.3);
-    expect(packed[targetIndex7 + 3], 17.4);
+    expect(packed[targetIndex7], 12.1);
+    expect(packed[targetIndex7 + 1], 12.2);
+    expect(packed[targetIndex7 + 2], 12.3);
+    expect(packed[targetIndex7 + 3], 12.4);
 
     final sourceShapeIndex7 = 69 + (7 * 4);
     final targetShapeIndex7 = 101 + (7 * 4);
