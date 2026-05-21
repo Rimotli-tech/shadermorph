@@ -27,7 +27,7 @@ class MorphDemoPage extends StatelessWidget {
       duration: const Duration(milliseconds: 700),
       transitionConfig: const MorphTransitionConfig(
         interpolation: MorphInterpolation.easeInOut,
-        shaderStyle: MorphShaderStyle.shapeAware,
+        shaderStyle: MorphShaderStyle.standard,
       ),
       child: Scaffold(
         backgroundColor: const Color(0xFF111014),
